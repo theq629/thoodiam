@@ -1,23 +1,21 @@
 NAME=roguelike
 NEEDPKGS=containers,gamestuff
-OCAMLBUILDOPTS=-use-ocamlfind -cflag -g
-OCAMLBUILDNATIVEOPTS=$(OCAMLBUILDOPTS) -no-plugin -pkg $(NEEDPKGS),curses
-OCAMLBUILDNATIVE=ocamlbuild $(OCAMLBUILDNATIVEOPTS) -I src
-OCAMLBUILDJSOPTS=$(OCAMLBUILDOPTS) -pkg $(NEEDPKGS) -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
-OCAMLBUILDJS=ocamlbuild $(OCAMLBUILDJSOPTS) -I src
-
 PROGS=roguelike_curses
 WEBPROGS=roguelike_htmlcanvas
+OCAMLBUILDOPTS=-use-ocamlfind -cflag -g
+
+OCAMLBUILD=ocamlbuild $(OCAMLBUILDOPTS) -I src -I src/curses -no-plugin -pkg $(NEEDPKGS),curses
+OCAMLBUILDJS=ocamlbuild $(OCAMLBUILDOPTS) -I src -I src/htmlcanvas -pkg $(NEEDPKGS) -plugin-tag 'package(js_of_ocaml.ocamlbuild)'
 
 PROGFILES=$(addsuffix .native, $(PROGS))
 WEBPROGFILES=$(addsuffix .html, $(WEBPROGS)) $(addsuffix .css, $(WEBPROGS)) $(addsuffix .js, $(WEBPROGS))
 
-all: bin web
+all: bin js
 
 bin:
-	$(OCAMLBUILDNATIVE) $(PROGFILES)
+	$(OCAMLBUILD) $(PROGFILES)
 
-web:
+js:
 	$(OCAMLBUILDJS) $(WEBPROGFILES)
 
 %.js: .FORCE
