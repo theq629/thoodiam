@@ -25,8 +25,8 @@ let choose_init_pos map is_clear rng =
 
 let init map_seed things_seed =
 	let map_dim = 100, 100 in
-	let map_rng = Random.State.make [| !map_seed |] in
-	let things_rng = Random.State.make [| !things_seed |] in
+	let map_rng = Random.State.make [| map_seed |] in
+	let things_rng = Random.State.make [| things_seed |] in
 	let raw_map = Mapgen.Cellular.gen
 		~fix:(fun m p -> if Game.Map.is_boundary m p then Some Mapgen.Wall else None)
 		map_dim

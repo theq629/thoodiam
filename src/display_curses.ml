@@ -1,6 +1,7 @@
 (* TODO: handle terminal resizing *)
 
 type screen_units = int
+type screen_pos = screen_units * screen_units
 
 type split_dir = Top | Bottom | Left | Right
 
@@ -16,6 +17,7 @@ and window =
 		x : screen_units;
 		y : screen_units;
 	}
+type disp = t
 
 let init () =
 	let stdscr = Curses.initscr () in
@@ -30,27 +32,27 @@ let init () =
 		root = { cwin = stdscr; x = 0; y = 0 };
 	}
 
-let close =
-	Curses.endwin
+let close disp =
+	Curses.endwin ()
 
 let with_display f =
+	let disp = init () in
 	try
-		let disp = init () in
 		f disp;
-		close ()
+		close disp
 	with e ->
-		close ();
+		close disp;
 		raise e
 
 let root disp =
 	disp.root
 
 (* TODO: redo input handling *)
-let any_key win =
+let any_key disp =
 	ignore (Curses.getch ())
 
 (* TODO: redo input handling *)
-let get_key win =
+let get_key disp =
 	Curses.getch ()
 
 module Window =
@@ -64,7 +66,7 @@ module Window =
 		let prepare cwin =
 			Curses.scrollok cwin false
 
-		let make parent (x, y) (dimx, dimy) =
+		let make disp parent (x, y) (dimx, dimy) =
 			let cwin = Curses.subwin parent.cwin dimy dimx y x in
 			prepare cwin;
 			{
@@ -73,7 +75,7 @@ module Window =
 				y = y;
 			}
 
-		let split parent dir (dimx, dimy) =
+		let split disp parent dir (dimx, dimy) =
 			let par_dimx, par_dimy = dim parent in
 			let dimx1, dimy1, dimx2, dimy2 =
 				match dir with
@@ -81,12 +83,12 @@ module Window =
 				| Top | Bottom -> par_dimx, dimy, par_dimx, (par_dimy - dimy) in
 			let x1, y1, x2, y2 =
 				match dir with
-				| Left -> parent.x, parent.y, parent.x + dimx1, parent.y
-				| Right -> parent.x + dimx2, parent.y, parent.x, parent.y
-				| Top -> parent.x, parent.y, parent.x, parent.y + dimy1
-				| Bottom -> parent.x, parent.y + dimy2, parent.x, parent.y in
-			let cwin1 = Curses.subwin parent.cwin dimy1 dimx1 y1 x1 in
-			let cwin2 = Curses.subwin parent.cwin dimy2 dimx2 y2 x2 in
+				| Left -> 0, 0, dimx1, 0
+				| Right -> dimx2, 0, 0, 0
+				| Top -> 0, 0, 0, dimy1
+				| Bottom -> 0, dimy2, 0, 0 in
+			let cwin1 = Curses.derwin parent.cwin dimy1 dimx1 y1 x1 in
+			let cwin2 = Curses.derwin parent.cwin dimy2 dimx2 y2 x2 in
 			prepare cwin1;
 			prepare cwin2;
 			{ cwin = cwin1; x = x1; y = y1 }, { cwin = cwin2; x = x2; y = y2 }
@@ -127,8 +129,7 @@ module Colour =
 			defaults
 
 		let change disp (Col ci) (r, g, b) =
-			let scale v = int_of_float (v *. 1000. +. 0.5) in
-			ignore (Curses.init_color ci (scale r) (scale g) (scale b))
+			ignore (Curses.init_color ci r g b)
 
 		let make disp rgb =
 			let c = Col disp.next_col in
@@ -185,12 +186,12 @@ module Style =
 
 module Base_view =
 	struct
+		type pos = screen_pos
+
 		type t =
 			{
 				win : Window.t;
 			}
-
-		let screen_dim dim = dim
 
 		let make _ win =
 			{
@@ -224,16 +225,13 @@ module Chars_view =
 			| None -> ()
 			end;
 			ignore (Curses.mvwaddch view.win.cwin y x (int_of_char char))
-
-		let clear view =
-			Curses.werase view.win.cwin
 	end
 
 module Text_view =
 	struct
 		include Base_view
 
-		let draw view (x, y) ?style str =
+		let draw view ?style (x, y) str =
 			begin match style with
 			| Some style -> Style.apply_attrs view.win.cwin style;
 			| None -> ()

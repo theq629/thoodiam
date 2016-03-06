@@ -1,4 +1,5 @@
 module Disp = Display_curses
+module Ui = Ui.Make(Disp)
 
 module Styles =
 	struct
@@ -34,9 +35,18 @@ let make_styles disp =
 		})) in
 	ui_styles, extra_styles
 
-let configure_ui styles ui =
+let make_ui styles disp =
+	let root = Disp.root disp in
+	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (10, 10) in
+	let status_win, map_win = Disp.Window.split disp rest_win Disp.Bottom (3, 3) in
+	let ui = Ui.({
+			panel = Disp.Text_view.make disp panel_win;
+			map = Disp.Chars_view.make disp map_win;
+			status = Disp.Text_view.make disp status_win;
+		}) in
 	Disp.Text_view.config ~bg_style:styles.Styles.panel_bg ui.Ui.panel;
-	Disp.Text_view.config ~bg_style:styles.Styles.status_bg ui.Ui.status
+	Disp.Text_view.config ~bg_style:styles.Styles.status_bg ui.Ui.status;
+	ui
 
 let process_input ch =
 	if ch == int_of_char 'Q' then Some Game.Quit
@@ -54,11 +64,10 @@ let run map_seed things_seed =
 	let game = Roguelike.init map_seed things_seed in
 	Disp.with_display begin fun disp ->
 		let ui_styles, extra_styles = make_styles disp in
-		let ui = Ui.init disp in
-		configure_ui extra_styles ui;
+		let ui = make_ui extra_styles disp in
 		while game.Game.player_alive do
 			Ui.draw ui ui_styles disp game;
-			match process_input (Disp.get_key ()) with
+			match process_input (Disp.get_key disp) with
 			| Some c -> Game.update game c
 			| None -> ()
 		done
@@ -73,4 +82,4 @@ let _ =
 			"-things-seed", Set_int map_seed,
 				"thing generation seed";
 		] []);
-	run map_seed things_seed
+	run !map_seed !things_seed
