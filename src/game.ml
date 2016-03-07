@@ -162,7 +162,7 @@ let update_vision game =
 	set_visible game.player_at;
 	Fov.compute blocks_sight set_visible game.player_at game.player_fov_radius
 
-let init map fov_radius player player_at =
+let init map fov_radius player player_at configure =
 	let game = {
 			map = map;
 			player = player;
@@ -172,6 +172,7 @@ let init map fov_radius player player_at =
 			player_seen = Map.map map (fun _ v -> None);
 			player_fov = Map.map map (fun _ _ -> false);
 		} in
+	configure game;
 	add_thing game player_at player;
 	update_vision game;
 	game

@@ -134,6 +134,7 @@ module Thing_kinds =
 						~damage:(Dice.make 4 4)
 						~evasion:0
 					())
+				()
 
 		let quarterstaff =
 			make
@@ -161,7 +162,7 @@ module Thing_kinds =
 
 		let human =
 			make
-				~tile:'/'
+				~tile:'@'
 				~name:"Human"
 				~weight:100.
 				()
@@ -177,6 +178,26 @@ let choose_init_pos map is_clear rng =
 		if is_clear map p then p
 		else run (radius + 1) in
 	run 1
+
+let make_stuff game rng num is_clear =
+	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer|]) in
+	let rand_point rng =
+		let dimx, dimy = Game.Map.dim game.Game.map in
+		Random.State.int rng dimx, Random.State.int rng dimy in
+	let max_tries = num * 10 in
+	let rec run t n =
+		if n <= 0 || t > max_tries then ()
+		else
+			let i = Random.State.int rng (Array.length kinds) in
+
+			let thing = Game.Thing.make kinds.(i) in
+			let p = rand_point rng in
+			if is_clear game.Game.map p then begin
+				Game.add_thing game p thing;
+				run (t + 1) (n + 1)
+			end else
+				run (t + 1) n in
+	run 0 num
 
 let init map_seed things_seed =
 	let map_dim = 100, 100 in
@@ -196,4 +217,6 @@ let init map_seed things_seed =
 	let player = Game.Thing.make Thing_kinds.human in
 	let is_clear map p =
 		not (Game.Map.get map p).Game.Cell.terrain.Game.Terrain.blocking in
-	Game.init map 10 player (choose_init_pos map is_clear things_rng)
+	Game.init map 10 player (choose_init_pos map is_clear things_rng) begin fun game ->
+			make_stuff game things_rng 50 is_clear
+		end
