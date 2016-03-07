@@ -4,18 +4,78 @@ module Fov = Fov_adammil
 
 type tile = char
 
-module Thing =
+module Dice =
 	struct
 		type t =
 			{
-				tile : tile;
+				num : int;
+				sides : int;
+			}
+
+		let make num sides =
+			{ num; sides }
+
+		let to_string dice =
+			Printf.sprintf "%id%i" dice.num dice.sides
+
+		let roll dice rng =
+			let rec run sum i =
+				if i <= 0 then sum
+				else
+					let roll = Random.State.int rng dice.sides in
+					run (sum + roll) (i - 1) in
+			run 0 dice.num
+	end
+
+module Combat =
+	struct
+		type t =
+			{
+				accuracy : int;
+				damage : Dice.t;
+				evasion : int;
+				protection : Dice.t;
 			}
 
 		let make
-			~tile
+			?(accuracy=0)
+			?(damage=Dice.make 0 0)
+			?(evasion=0)
+			?(protection=(Dice.make 0 0))
 			()
 			=
-			{ tile }
+			{ accuracy; damage; evasion; protection }
+	end
+
+module Thing =
+	struct
+		module Kind =
+			struct
+				type t =
+					{
+						tile : tile;
+						name : string;
+						weight : float;
+						melee : Combat.t option;
+					}
+
+				let make
+					~tile
+					~name
+					~weight
+					?melee
+					()
+					=
+					{ tile; name; weight; melee }
+			end
+
+		type t =
+			{
+				kind : Kind.t;
+			}
+
+		let make kind =
+			{ kind }
 	end
 
 module Terrain =
@@ -92,7 +152,7 @@ let update_vision game =
 			let tile =
 				match cell.Cell.things with
 				| [] -> cell.Cell.terrain.Terrain.tile
-				| t::_ -> t.Thing.tile in
+				| t::_ -> Thing.(Kind.(t.kind.tile)) in
 			Map.set game.player_seen p (Some tile)
 		end in
 	let blocks_sight p =

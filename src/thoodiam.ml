@@ -38,7 +38,12 @@ let init map_seed things_seed =
 				| Mapgen.Wall -> Terrains.wall in
 			Game.Cell.make terrain
 		end in
-	let player = Game.Thing.make ~tile:'@' () in
+	let player_kind = Game.Thing.Kind.make
+		~tile:'@'
+		~name:"A player"
+		weight:100.
+		() in
+	let player = Game.Thing.make player_kind in
 	let is_clear map p =
 		not (Game.Map.get map p).Game.Cell.terrain.Game.Terrain.blocking in
 	Game.init map 10 player (choose_init_pos map is_clear things_rng)
