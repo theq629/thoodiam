@@ -160,6 +160,60 @@ module Thing_kinds =
 					())
 				()
 
+		let leather_armour =
+			make
+				~tile:'['
+				~name:"leather armour"
+				~weight:15.
+				~armour:Combat.(make
+						~evasion:(-1)
+						~protection:(Dice.make 1 4)
+					())
+				()
+
+		let robe =
+			make
+				~tile:'['
+				~name:"robe"
+				~weight:2.
+				~armour:Combat.(make ())
+				()
+
+		let studded_leather_armour =
+			make
+				~tile:'['
+				~name:"studded leather armour"
+				~weight:20.
+				~armour:Combat.(make
+						~evasion:(-2)
+						~protection:(Dice.make 1 6)
+					())
+				()
+
+		let mail_corslet =
+			make
+				~tile:'['
+				~name:"mail corslet"
+				~weight:40.
+				~armour:Combat.(make
+						~accuracy:(-1)
+						~evasion:(-3)
+						~protection:(Dice.make 2 4)
+					())
+				()
+
+		let mail_hauberk =
+			make
+				~tile:'['
+				~name:"mail hauberk"
+				~weight:40.
+				~armour:Combat.(make
+						~accuracy:(-2)
+						~evasion:(-4)
+						~protection:(Dice.make 2 5)
+					())
+				()
+
 		let human =
 			make
 				~tile:'@'

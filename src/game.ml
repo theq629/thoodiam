@@ -57,6 +57,7 @@ module Thing =
 						name : string;
 						weight : float;
 						melee : Combat.t option;
+						armour : Combat.t option;
 					}
 
 				let make
@@ -64,9 +65,10 @@ module Thing =
 					~name
 					~weight
 					?melee
+					?armour
 					()
 					=
-					{ tile; name; weight; melee }
+					{ tile; name; weight; melee; armour }
 			end
 
 		type t =
@@ -92,6 +94,18 @@ module Terrain =
 			()
 			=
 			{ tile; blocking }
+	end
+
+module Being =
+	struct
+		type equip_slot = Weapon | Armour
+
+		type t =
+			{
+				body : Thing.t;
+				inv : Thing.t list;
+				equip : (equip_slot * Thing.t) list;
+			}
 	end
 
 module Cell =
@@ -180,16 +194,27 @@ let init map fov_radius player player_at configure =
 let update game cmd =
 	if game.player_alive then begin
 		begin match cmd with
-		| Quit ->
-			game.player_alive <- false
-		| Player_move dir ->
-			let p1 = Vec.(game.player_at + dir_to_vec dir) in
-			if (Map.is_valid game.map p1)
-				&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
-				remove_thing game game.player_at game.player;
-				add_thing game p1 game.player;
-				game.player_at <- p1;
-				update_vision game
+		| Quit -> begin
+				game.player_alive <- false
+			end
+		| Move dir -> begin
+				let p1 = Vec.(game.player_at + dir_to_vec dir) in
+				if (Map.is_valid game.map p1)
+					&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
+					remove_thing game game.player_at game.player;
+					add_thing game p1 game.player;
+					game.player_at <- p1;
+					update_vision game
+				end
+			end
+		| Pick_up (being, thing) -> begin
+				(* TODO *)
+			end
+		| Equip (being, thing) -> begin
+				(* TODO *)
+			end
+		| Unquip (being, equip_slot) -> begin
+				(* TODO *)
 			end
 		end
 	end
