@@ -1,7 +1,7 @@
-NAME=roguelike
+NAME=thoodiam
 NEEDPKGS=containers,gamestuff
-PROGS=roguelike_curses
-WEBPROGS=roguelike_htmlcanvas
+PROGS=thoodiam_curses
+WEBPROGS=thoodiam_htmlcanvas
 OCAMLBUILDOPTS=-use-ocamlfind -cflag -g
 
 OCAMLBUILD=ocamlbuild $(OCAMLBUILDOPTS) -I src -I src/curses -no-plugin -pkg $(NEEDPKGS),curses

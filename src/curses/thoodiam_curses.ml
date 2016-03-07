@@ -61,7 +61,7 @@ let process_input ch =
 	else None
 
 let run map_seed things_seed =
-	let game = Roguelike.init map_seed things_seed in
+	let game = Thoodiam.init map_seed things_seed in
 	Disp.with_display begin fun disp ->
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui extra_styles disp in
