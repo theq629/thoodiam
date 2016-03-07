@@ -1,1 +1,2 @@
-<src/roguelike_htmlcanvas/roguelike_htmlcanvas.{ml,mli,byte}>: syntax(camlp4o), package(js_of_ocaml), package(js_of_ocaml.syntax)
+<src/htmlcanvas/*.{ml,mli,byte}>: syntax(camlp4o), package(js_of_ocaml), package(js_of_ocaml.syntax)
+<htmlcanvas>: not_hygienic
