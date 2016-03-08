@@ -50,14 +50,14 @@ let make_ui styles disp =
 
 let process_input ch =
 	if ch == int_of_char 'Q' then Some Game.Quit
-	else if ch == Curses.Key.up || ch == int_of_char 'k' then Some Game.(Player_move N)
-	else if ch == Curses.Key.down || ch == int_of_char 'j' then Some Game.(Player_move S)
-	else if ch == Curses.Key.left || ch == int_of_char 'h' then Some Game.(Player_move W)
-	else if ch == Curses.Key.right || ch == int_of_char 'l' then Some Game.(Player_move E)
-	else if ch == int_of_char 'y' then Some Game.(Player_move NW)
-	else if ch == int_of_char 'u' then Some Game.(Player_move NE)
-	else if ch == int_of_char 'b' then Some Game.(Player_move SW)
-	else if ch == int_of_char 'n' then Some Game.(Player_move SE)
+	else if ch == Curses.Key.up || ch == int_of_char 'k' then Some Game.(Move N)
+	else if ch == Curses.Key.down || ch == int_of_char 'j' then Some Game.(Move S)
+	else if ch == Curses.Key.left || ch == int_of_char 'h' then Some Game.(Move W)
+	else if ch == Curses.Key.right || ch == int_of_char 'l' then Some Game.(Move E)
+	else if ch == int_of_char 'y' then Some Game.(Move NW)
+	else if ch == int_of_char 'u' then Some Game.(Move NE)
+	else if ch == int_of_char 'b' then Some Game.(Move SW)
+	else if ch == int_of_char 'n' then Some Game.(Move SE)
 	else None
 
 let run map_seed things_seed =
@@ -65,7 +65,7 @@ let run map_seed things_seed =
 	Disp.with_display begin fun disp ->
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui extra_styles disp in
-		while game.Game.player_alive do
+		while match game.Game.player with Some _ -> true | None -> false do
 			Ui.draw ui ui_styles disp game;
 			match process_input (Disp.get_key disp) with
 			| Some c -> Game.update game c

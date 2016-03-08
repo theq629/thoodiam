@@ -219,6 +219,7 @@ module Thing_kinds =
 				~tile:'@'
 				~name:"Human"
 				~weight:100.
+				~visual_priority:true
 				()
 	end
 

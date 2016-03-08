@@ -58,6 +58,7 @@ module Thing =
 						weight : float;
 						melee : Combat.t option;
 						armour : Combat.t option;
+						visual_priority : bool;
 					}
 
 				let make
@@ -66,9 +67,10 @@ module Thing =
 					~weight
 					?melee
 					?armour
+					?(visual_priority=false)
 					()
 					=
-					{ tile; name; weight; melee; armour }
+					{ tile; name; weight; melee; armour; visual_priority }
 			end
 
 		type t =
@@ -102,6 +104,8 @@ module Being =
 
 		type t =
 			{
+				vison_radius : int;
+				mutable at : Map.Location.t;
 				body : Thing.t;
 				inv : Thing.t list;
 				equip : (equip_slot * Thing.t) list;
@@ -126,27 +130,26 @@ module Cell =
 type dir = N | S | E | W | NE | NW | SE | SW
 
 type command =
-	| Player_move of dir
+	| Move of dir
+	| Pick_up of Thing.t
+	| Drop of Thing.t
+	| Equip of (Thing.t * Being.equip_slot)
+	| Unequip of Being.equip_slot
 	| Quit
+
+type result =
+	| Move_blocked
+	| Thing_not_found
+	| Equip_slot_full
+	| Equip_slot_empty
 
 type t =
 	{
 		map : Cell.t Map.t;
-		player : Thing.t;
-		player_fov_radius : int;
-		mutable player_at : Map.Location.t;
-		mutable player_alive : bool;
+		mutable player : Being.t option;
 		player_seen : tile option Map.t;
 		player_fov : bool Map.t;
 	}
-
-let add_thing game p thing =
-	let cell = Map.get game.map p in
-	cell.Cell.things <- thing::cell.Cell.things
-
-let remove_thing game p thing =
-	let cell = Map.get game.map p in
-	cell.Cell.things <- List.filter (fun t -> t != thing) cell.Cell.things
 
 let dir_to_vec = function
 	| N -> (0, -1)
@@ -158,63 +161,96 @@ let dir_to_vec = function
 	| SE -> (1, 1)
 	| SW -> (-1, 1)
 
-let update_vision game =
+let add_thing game p thing =
+	let cell = Map.get game.map p in
+	cell.Cell.things <- thing::cell.Cell.things
+
+let remove_thing game p thing =
+	let cell = Map.get game.map p in
+	cell.Cell.things <- List.filter (fun t -> t != thing) cell.Cell.things
+
+let remove_being game being =
+	remove_thing game being.Being.at being.Being.body
+
+let place_being game being at =
+	remove_thing game being.Being.at being.Being.body;
+	add_thing game at being.Being.body;
+	being.Being.at <- at
+
+let init_being ?(vison_radius=10) game body at =
+	let being = Being.({
+			vison_radius = vison_radius;
+			at = at;
+			body = body;
+			inv = [];
+			equip = [];
+		}) in
+	place_being game being being.Being.at;
+	being
+
+let update_vision game player =
 	let set_visible p =
 		if Map.is_valid game.map p then begin
 			Map.set game.player_fov p true;
 			let cell = Map.get game.map p in
 			let tile =
-				match cell.Cell.things with
-				| [] -> cell.Cell.terrain.Terrain.tile
-				| t::_ -> Thing.(Kind.(t.kind.tile)) in
+				let rec run =
+					function
+					| [] -> cell.Cell.terrain.Terrain.tile
+					| [t] -> Thing.(Kind.(t.kind.tile))
+					| t::_ when Thing.(Kind.(t.kind.visual_priority)) -> Thing.(Kind.(t.kind.tile))
+					| _::ts1 -> run ts1 in
+				run cell.Cell.things in
 			Map.set game.player_seen p (Some tile)
 		end in
 	let blocks_sight p =
 		not (Map.is_valid game.map p)
 		|| (Map.get game.map p).Cell.terrain.Terrain.blocking in
 	Map.update game.player_fov (fun _ _ -> false);
-	set_visible game.player_at;
-	Fov.compute blocks_sight set_visible game.player_at game.player_fov_radius
+	set_visible player.Being.at;
+	Fov.compute blocks_sight set_visible player.Being.at player.Being.vison_radius
 
-let init map fov_radius player player_at configure =
+let init map fov_radius player_body player_at configure =
 	let game = {
 			map = map;
-			player = player;
-			player_fov_radius = fov_radius;
-			player_alive = true;
-			player_at =	player_at;
+			player = None;
 			player_seen = Map.map map (fun _ v -> None);
 			player_fov = Map.map map (fun _ _ -> false);
 		} in
 	configure game;
-	add_thing game player_at player;
-	update_vision game;
+	let player = init_being game player_body player_at in
+	game.player <- Some player;
+	update_vision game player;
 	game
 
-let update game cmd =
-	if game.player_alive then begin
-		begin match cmd with
-		| Quit -> begin
-				game.player_alive <- false
-			end
-		| Move dir -> begin
-				let p1 = Vec.(game.player_at + dir_to_vec dir) in
-				if (Map.is_valid game.map p1)
-					&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
-					remove_thing game game.player_at game.player;
-					add_thing game p1 game.player;
-					game.player_at <- p1;
-					update_vision game
-				end
-			end
-		| Pick_up (being, thing) -> begin
-				(* TODO *)
-			end
-		| Equip (being, thing) -> begin
-				(* TODO *)
-			end
-		| Unquip (being, equip_slot) -> begin
-				(* TODO *)
+let update_player game player cmd =
+	match cmd with
+	| Quit -> begin
+			remove_being game player;
+			game.player <- None
+		end
+	| Move dir -> begin
+			let p1 = Vec.(player.Being.at + dir_to_vec dir) in
+			if (Map.is_valid game.map p1)
+				&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
+				place_being game player p1;
+				update_vision game player
 			end
 		end
-	end
+	| Pick_up thing -> begin
+			(* TODO *)
+		end
+	| Drop thing -> begin
+			(* TODO *)
+		end
+	| Equip thing -> begin
+			(* TODO *)
+		end
+	| Unequip equip_slot -> begin
+			(* TODO *)
+		end
+
+let update game cmd =
+	match game.player with
+	| Some p -> update_player game p cmd
+	| None -> ()

@@ -59,14 +59,14 @@ let show_death disp styles =
 
 let process_input key =
 	if key = 81 then Some Game.Quit
-	else if key = 38 || key = 75 then Some Game.(Player_move N)
-	else if key = 40 || key = 74 then Some Game.(Player_move S)
-	else if key = 37 || key = 72 then Some Game.(Player_move W)
-	else if key = 39 || key = 76 then Some Game.(Player_move E)
-	else if key = 89 then Some Game.(Player_move NW)
-	else if key = 85 then Some Game.(Player_move NE)
-	else if key = 66 then Some Game.(Player_move SW)
-	else if key = 78 then Some Game.(Player_move SE)
+	else if key = 38 || key = 75 then Some Game.(Move N)
+	else if key = 40 || key = 74 then Some Game.(Move S)
+	else if key = 37 || key = 72 then Some Game.(Move W)
+	else if key = 39 || key = 76 then Some Game.(Move E)
+	else if key = 89 then Some Game.(Move NW)
+	else if key = 85 then Some Game.(Move NE)
+	else if key = 66 then Some Game.(Move SW)
+	else if key = 78 then Some Game.(Move SE)
 	else None
 
 let onload _ =

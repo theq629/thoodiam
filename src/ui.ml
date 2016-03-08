@@ -58,7 +58,10 @@ module Make =
 		let draw ui styles disp game =
 			draw_panel styles ui.panel;
 			draw_status styles ui.status;
-			draw_map styles ui.map game game.Game.player_at;
+			begin match game.Game.player with
+			| Some p -> draw_map styles ui.map game p.Game.Being.at
+			| None -> ()
+			end;
 			D.Text_view.refresh ui.panel;
 			D.Text_view.refresh ui.status;
 			D.Chars_view.refresh ui.map
