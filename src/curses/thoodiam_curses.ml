@@ -39,11 +39,10 @@ let make_ui styles disp =
 	let root = Disp.root disp in
 	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (10, 10) in
 	let status_win, map_win = Disp.Window.split disp rest_win Disp.Bottom (3, 3) in
-	let ui = Ui.({
-			panel = Disp.Text_view.make disp panel_win;
-			map = Disp.Chars_view.make disp map_win;
-			status = Disp.Text_view.make disp status_win;
-		}) in
+	let ui = Ui.make
+			~panel:(Disp.Text_view.make disp panel_win)
+			~status:(Disp.Text_view.make disp status_win)
+			~map:(Disp.Chars_view.make disp map_win) in
 	Disp.Text_view.config ~bg_style:styles.Styles.panel_bg ui.Ui.panel;
 	Disp.Text_view.config ~bg_style:styles.Styles.status_bg ui.Ui.status;
 	ui
@@ -71,7 +70,9 @@ let run map_seed things_seed =
 		while match game.Game.player with Some _ -> true | None -> false do
 			Ui.draw ui ui_styles disp game;
 			match process_input (Disp.get_key disp) with
-			| Some k -> Game.update game (Ui.handle_input game k)
+			| Some k ->
+				Game.update game (Ui.handle_input game k);
+				Ui.update_game game ui
 			| None -> ()
 		done
 	end

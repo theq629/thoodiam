@@ -39,11 +39,10 @@ let make_ui styles disp =
 	let root = Disp.root disp in
 	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.1 in
 	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.9 in
-	let ui = Ui.({
-			panel = Disp.Text_view.make disp panel_win;
-			map = Disp.Chars_view.make disp map_win;
-			status = Disp.Text_view.make disp status_win;
-		}) in
+	let ui = Ui.make
+			~panel:(Disp.Text_view.make disp panel_win)
+			~status:(Disp.Text_view.make disp status_win)
+			~map:(Disp.Chars_view.make disp map_win) in
 	Disp.Text_view.config ~bg:styles.Styles.panel_bg ui.Ui.panel;
 	Disp.Text_view.config ~bg:styles.Styles.status_bg ui.Ui.status;
 	Disp.Chars_view.config ~bg:styles.Styles.map_bg ui.Ui.map;
@@ -61,7 +60,7 @@ let show_death disp styles =
 let process_input key =
 	Ui.Key.(
 		if key = 81 then Some Quit
-		else if key = 103 then Some Pick_up
+		else if key = 71 then Some Pick_up
 		else if key = 38 || key = 75 then Some N
 		else if key = 40 || key = 74 then Some S
 		else if key = 37 || key = 72 then Some W
@@ -70,7 +69,10 @@ let process_input key =
 		else if key = 85 then Some NE
 		else if key = 66 then Some SW
 		else if key = 78 then Some SE
-		else None
+		else begin
+			Printf.eprintf "unknown key %i\n" key;
+			None
+		end
 	)
 
 let onload _ =
@@ -86,7 +88,9 @@ let onload _ =
 		| None -> ()
 		| Some key ->
 			begin match process_input key with
-			| Some k -> Game.update game (Ui.handle_input game k)
+			| Some k ->
+				Game.update game (Ui.handle_input game k);
+				Ui.update_game game ui
 			| None -> ()
 			end
 		end;

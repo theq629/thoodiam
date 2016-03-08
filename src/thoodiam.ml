@@ -20,7 +20,7 @@ module Thing_kinds =
 		let dagger =
 			make
 				~tile:'/'
-				~name:"Dagger"
+				~name:"dagger"
 				~weight:2.
 				~melee:Combat.(make
 						~accuracy:0
@@ -31,7 +31,7 @@ module Thing_kinds =
 		let short_sword =
 			make
 				~tile:'/'
-				~name:"Short sword"
+				~name:"short sword"
 				~weight:5.
 				~melee:Combat.(make
 						~accuracy:0
@@ -43,7 +43,7 @@ module Thing_kinds =
 		let long_sword =
 			make
 				~tile:'/'
-				~name:"Longsword"
+				~name:"longsword"
 				~weight:10.
 				~melee:Combat.(make
 						~accuracy:0
@@ -55,7 +55,7 @@ module Thing_kinds =
 		let bastard_sword =
 			make
 				~tile:'/'
-				~name:"Bastard sword"
+				~name:"bastard sword"
 				~weight:15.
 				~melee:Combat.(make
 						~accuracy:(-1)
@@ -67,7 +67,7 @@ module Thing_kinds =
 		let great_sword =
 			make
 				~tile:'/'
-				~name:"Greatsword"
+				~name:"greatsword"
 				~weight:20.
 				~melee:Combat.(make
 						~accuracy:(-1)
@@ -79,7 +79,7 @@ module Thing_kinds =
 		let spear =
 			make
 				~tile:'/'
-				~name:"Spear"
+				~name:"spear"
 				~weight:15.
 				~melee:Combat.(make
 						~accuracy:(-1)
@@ -91,7 +91,7 @@ module Thing_kinds =
 		let great_spear =
 			make
 				~tile:'/'
-				~name:"Great Spear"
+				~name:"great spear"
 				~weight:15.
 				~melee:Combat.(make
 						~accuracy:(-1)
@@ -103,7 +103,7 @@ module Thing_kinds =
 		let glaive =
 			make
 				~tile:'/'
-				~name:"Glaive"
+				~name:"glaive"
 				~weight:20.
 				~melee:Combat.(make
 						~accuracy:(-2)
@@ -115,7 +115,7 @@ module Thing_kinds =
 		let battle_axe =
 			make
 				~tile:'/'
-				~name:"Battle Axe"
+				~name:"battle axe"
 				~weight:10.
 				~melee:Combat.(make
 						~accuracy:(-3)
@@ -127,7 +127,7 @@ module Thing_kinds =
 		let great_axe =
 			make
 				~tile:'/'
-				~name:"Battle Axe"
+				~name:"battle axe"
 				~weight:15.
 				~melee:Combat.(make
 						~accuracy:(-4)
@@ -139,7 +139,7 @@ module Thing_kinds =
 		let quarterstaff =
 			make
 				~tile:'/'
-				~name:"Quarterstaff"
+				~name:"quarterstaff"
 				~weight:3.
 				~melee:Combat.(make
 						~accuracy:0
@@ -151,7 +151,7 @@ module Thing_kinds =
 		let war_hammer =
 			make
 				~tile:'/'
-				~name:"War Hammer"
+				~name:"war hammer"
 				~weight:10.
 				~melee:Combat.(make
 						~accuracy:(-2)
@@ -217,7 +217,7 @@ module Thing_kinds =
 		let human =
 			make
 				~tile:'@'
-				~name:"Human"
+				~name:"human"
 				~weight:100.
 				~visual_priority:true
 				()
