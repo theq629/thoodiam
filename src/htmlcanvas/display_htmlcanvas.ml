@@ -9,7 +9,7 @@ module Abstract_window =
 				mutable pos : screen_pos;
 				mutable dim : screen_pos;
 				mutable subs : sub list;
-				mutable view_layouts : (t -> unit) list;
+				mutable view_layouts : (t option -> unit) list;
 			}
 		and sub = Float of t | Split of (split_dir * float * t * t)
 
@@ -18,7 +18,7 @@ module Abstract_window =
 
 		let rec layout win =
 			List.iter begin fun view_layout ->
-				view_layout win
+				view_layout (Some win)
 			end win.view_layouts;
 			List.iter begin fun sub ->
 				match sub with
@@ -43,9 +43,9 @@ module Abstract_window =
 					layout child2
 			end win.subs
 
-		let make disp parent pos dim =
+		let make disp parent (x, y) dim =
 			{
-				pos = pos;
+				pos = (let px, py = parent.pos in (px + x, py + y));
 				dim = dim;
 				subs = [];
 				view_layouts = [];
@@ -65,6 +65,19 @@ module Abstract_window =
 			parent.subs <- (Split (split_dir, frac, child1, child2))::parent.subs;
 			layout parent;
 			child1, child2
+
+		let rec remove win =
+			List.iter begin fun view_layout ->
+				view_layout None
+			end win.view_layouts;
+			List.iter begin fun sub ->
+				match sub with
+				| Float child ->
+					remove child
+				| Split (dir, frac, child1, child2) ->
+					remove child1;
+					remove child2
+			end win.subs
 	end
 
 module Watcher_set =
@@ -107,6 +120,7 @@ type t =
 		root : Window.t;
 		mutable view_elts : Dom.element Js.t list;
 		refresh_watchers : t Watcher_set.t;
+		mutable key_handler : (key -> unit) option;
 	}
 type disp = t
 
@@ -139,6 +153,7 @@ let init container_elt =
 			root = Window.make_dummy ();
 			view_elts = [];
 			refresh_watchers = Watcher_set.make ();
+			key_handler = None;
 		} in
 	handle_resize ui ();
 	Dom_html.window##onresize <- Dom_html.handler (debounce 100. (Js.wrap_callback (handle_resize ui)));
@@ -152,45 +167,18 @@ let close ui =
 let root ui =
 	ui.root
 
+let on_refresh ui f =
+	ignore (Watcher_set.add ui.refresh_watchers f)
+
 let input_loop ui f =
-	let key_watcher = ref None in
-	let refresh_watcher = ref None in
-
-	let finish () =
-		begin match !key_watcher with
-		| Some w -> Dom_html.removeEventListener w
-		| None -> ()
-		end;
-		begin match !refresh_watcher with
-		| Some w -> Watcher_set.remove ui.refresh_watchers w
-		| None -> ()
-		end in
-
-	let on_refresh _ =
-		if not (f None) then
-			finish () in
 	let on_key event =
-		if not (f (Some event##keyCode)) then
-			finish ();
+		begin match ui.key_handler with
+		| None -> ()
+		| Some f -> f event##keyCode
+		end;
 		Js._true in
-
-	if f None then begin
-		key_watcher := Some (Dom_html.addEventListener Dom_html.document Dom_html.Event.keydown (Dom_html.handler on_key) Js._false);
-		refresh_watcher := Some (Watcher_set.add ui.refresh_watchers on_refresh)
-	end
-
-let get_key ui =
-	(* TODO: really need a better way to handle input to avoid busy waiting *)
-	let got_key = ref None in
-	input_loop ui begin fun key ->
-		got_key := key;
-		false
-	end;
-	let rec run () =
-		match !got_key with
-		| Some k -> k
-		| None -> run () in
-	run ()
+	ui.key_handler <- Some f;
+	ignore (Dom_html.addEventListener Dom_html.document Dom_html.Event.keydown (Dom_html.handler on_key) Js._false)
 
 module Colour =
 	struct
@@ -220,10 +208,11 @@ module Base_view =
 
 		type t =
 			{
+				ui : disp;
 				win : Window.t;
 				elt : Dom_html.canvasElement Js.t;
 				con : Dom_html.canvasRenderingContext2D Js.t;
-				mutable layouter : Window.t -> unit;
+				mutable layouter : Window.t option -> unit;
 				mutable char_dim : float * float;
 				mutable font : Js.js_string Js.t;
 				mutable foreground : Colour.t;
@@ -244,15 +233,19 @@ module Base_view =
 			view.con##font <- view.font
 
 		let layout view win =
-			let x, y = win.Window.pos in
-			let dimx, dimy = win.Window.dim in
-			Window.(
-				view.elt##style##left <- Js.string (string_of_int x ^ "px");
-				view.elt##style##top <- Js.string (string_of_int y ^ "px");
-				view.elt##width <- dimx;
-				view.elt##height <- dimy;
-			);
-			apply_settings view
+			match win with
+			| Some win ->
+				let x, y = win.Window.pos in
+				let dimx, dimy = win.Window.dim in
+				Window.(
+					view.elt##style##left <- Js.string (string_of_int x ^ "px");
+					view.elt##style##top <- Js.string (string_of_int y ^ "px");
+					view.elt##width <- dimx;
+					view.elt##height <- dimy;
+				);
+				apply_settings view
+			| None ->
+				remove_view_elt view.ui view.elt
 
 		let config ?(font_pt=12) ?(font_name="monospace") ?(fg=Colour.of_string "#000000") ?(bg=Colour.of_string "#ffffff") view =
 			view.font <- Js.string (Printf.sprintf "%ipt %s" font_pt font_name);
@@ -268,6 +261,7 @@ module Base_view =
 			canvas##style##position <- Js.string "absolute";
 			let con = canvas##getContext (Dom_html._2d_) in
 			let view = {
+					ui = ui;
 					win = win;
 					elt = canvas;
 					con = con;
@@ -282,7 +276,7 @@ module Base_view =
 			Window.(
 				win.view_layouts <- view.layouter :: win.view_layouts
 			);
-			view.layouter view.win;
+			view.layouter (Some view.win);
 			Js.Opt.iter
 				(Dom.CoerceTo.element canvas)
 				(fun elt -> ui.view_elts <- elt::ui.view_elts);

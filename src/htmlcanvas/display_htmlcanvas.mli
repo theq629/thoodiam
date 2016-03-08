@@ -10,13 +10,14 @@ module Window :
 		val make : disp -> t -> screen_pos -> screen_pos -> t
 		val split : disp -> t -> split_dir -> float -> (t * t)
 		val dim : t -> screen_pos
+		val remove : t -> unit
 	end
 
 val init : Dom_html.element Js.t -> t
 val close : t -> unit
 val root : t -> Window.t
-val input_loop : t -> (key option -> bool) -> unit
-val get_key : t -> key
+val on_refresh : t -> (t -> unit) -> unit
+val input_loop : t -> (key -> unit) -> unit
 
 module Colour :
 	sig

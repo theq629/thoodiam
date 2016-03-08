@@ -1,3 +1,4 @@
+open Std
 module Disp = Display_htmlcanvas
 module Ui = Ui.Make(Disp)
 
@@ -25,7 +26,7 @@ let make_styles disp =
 			status_text = make disp ~fg:(c "black");
 			popup_label = make disp ~fg:(c "yellow");
 			popup_key = make disp ~fg:(c "yellow");
-			popup_text = make disp ~fg:(c "black");
+			popup_text = make disp ~fg:(c "white");
 			map_fov = make disp ~fg:(c "yellow");
 			map_seen = make disp ~fg:(c "white");
 		})) in
@@ -39,37 +40,6 @@ let make_styles disp =
 			death_text = make disp ~fg:(c "red");
 		})) in
 	ui_styles, extra_styles
-
-let do_popup disp extra_styles parent_win ui f =
-	let win = Disp.Window.make disp parent_win (0, 0) (Disp.Window.dim parent_win) in
-	let view = Disp.Text_view.make disp win in
-	Disp.Text_view.config ~bg:extra_styles.Styles.popup_bg view;
-	f view;
-	ignore (Disp.get_key disp)
-
-let make_ui ui_styles extra_styles disp =
-	let root = Disp.root disp in
-	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.1 in
-	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.9 in
-	let ui = Ui.make
-			~panel:(Disp.Text_view.make disp panel_win)
-			~status:(Disp.Text_view.make disp status_win)
-			~map:(Disp.Chars_view.make disp map_win)
-			~styles:ui_styles
-			~do_popup:(do_popup disp extra_styles map_win) in
-	Disp.Text_view.config ~bg:extra_styles.Styles.panel_bg ui.Ui.panel;
-	Disp.Text_view.config ~bg:extra_styles.Styles.status_bg ui.Ui.status;
-	Disp.Chars_view.config ~bg:extra_styles.Styles.map_bg ui.Ui.map;
-	ui
-
-let show_death disp styles =
-	let root = Disp.root disp in
-	let win = Disp.Window.make disp root (0, 0) (Disp.Window.dim root) in
-	let view = Disp.Text_view.make disp win in
-	Disp.Text_view.config ~bg:styles.Styles.death_bg view;
-	Disp.Text_view.clear view;
-	Disp.Text_view.draw view ~style:styles.Styles.death_text (1, 1) "You are dead.";
-	Disp.Text_view.refresh view
 
 let process_input key =
 	Ui.Key.(
@@ -90,32 +60,75 @@ let process_input key =
 		end
 	)
 
+let process_popup_input key =
+	Ui.Key.(
+		if key = 27 || key = 13 then Some End
+		else if key = 32 || key = 221 then Some Page_down
+		else if key = 219 then Some Page_up
+		else begin
+			Printf.eprintf "unknown key %i\n" key;
+			None
+		end
+	)
+
+let make_ui ui_styles extra_styles disp update_queue =
+	let root = Disp.root disp in
+	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.1 in
+	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.9 in
+	let do_popup ui f =
+		let win = Disp.Window.make disp map_win (0, 0) (Disp.Window.dim map_win) in
+		let view = Disp.Text_view.make disp win in
+		Disp.Text_view.config ~bg:extra_styles.Styles.popup_bg view;
+		let update key =
+			if f view (Opt.flat_map process_popup_input key) then ()
+			else begin
+				update_queue :=
+					begin match !update_queue with
+					| u::us -> us 
+					| [] -> []
+					end;
+				Disp.Window.remove win
+			end in
+		update_queue := update :: !update_queue;
+		update None in
+	let ui = Ui.make
+		~panel:(Disp.Text_view.make disp panel_win)
+		~status:(Disp.Text_view.make disp status_win)
+		~map:(Disp.Chars_view.make disp map_win)
+		~styles:ui_styles
+		~list_ids:Ui.letter_list_ids
+		~do_popup:do_popup in
+	Disp.Text_view.config ~bg:extra_styles.Styles.panel_bg ui.Ui.panel;
+	Disp.Text_view.config ~bg:extra_styles.Styles.status_bg ui.Ui.status;
+	Disp.Chars_view.config ~bg:extra_styles.Styles.map_bg ui.Ui.map;
+	ui
+
+let update_game disp ui game key =
+	Opt.iter begin fun key ->
+		Game.update game (Ui.handle_input game ui key);
+		Ui.update_game game ui
+	end (Opt.flat_map process_input key);
+	Ui.draw ui disp game
+
 let onload _ =
 	let map_seed = 0 in
 	let things_seed = 0 in
 	let game = Thoodiam.init map_seed things_seed in
 	let disp = Disp.init Dom_html.document##body in
 	let ui_styles, extra_styles = make_styles disp in
-	let ui = make_ui ui_styles extra_styles disp in
-	Ui.draw ui disp game;
-	Disp.input_loop disp begin fun event ->
-		begin match event with
-		| None -> ()
-		| Some key ->
-			begin match process_input key with
-			| Some k ->
-				Game.update game (Ui.handle_input game ui k);
-				Ui.update_game game ui
-			| None -> ()
-			end
-		end;
-		Ui.draw ui disp game;
-		begin match game.Game.player with
-		| Some _ -> true
-		| None ->
-			show_death disp extra_styles;
-			false
-		end
+	let update_queue = ref [] in
+	let ui = make_ui ui_styles extra_styles disp update_queue in
+	update_queue := (update_game disp ui game) :: !update_queue;
+	let update key =
+		match !update_queue with
+		| [] -> ()
+		| u::_ -> u key in
+	update None;
+	Disp.on_refresh disp begin fun _ ->
+		update None
+	end;
+	Disp.input_loop disp begin fun key ->
+		update (Some key)
 	end;
 	Js._false
 

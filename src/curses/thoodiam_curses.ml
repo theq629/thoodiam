@@ -59,7 +59,9 @@ let make_ui ui_styles extra_styles disp =
 			~status:(Disp.Text_view.make disp status_win)
 			~map:(Disp.Chars_view.make disp map_win)
 			~styles:ui_styles
-			~do_popup:(do_popup disp extra_styles map_win) in
+			~do_popup:(do_popup disp extra_styles map_win)
+			~list_ids:Ui.letter_list_ids
+			in
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.panel_bg ui.Ui.panel;
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.status_bg ui.Ui.status;
 	ui

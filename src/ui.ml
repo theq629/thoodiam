@@ -19,7 +19,25 @@ module Make =
 					}
 			end
 
+		module Key =
+			struct
+				type t =
+					| N | S | E | W | NE | NW | SE | SW
+					| Pick_up
+					| Inventory
+					| Page_up
+					| Page_down
+					| End
+					| List_item of int
+					| Quit
+			end
+
+		let letter_list_ids =
+			let s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" in
+			Array.init (String.length s) (fun i -> String.make 1 s.[i])
+
 		type message =
+			| Dead
 			| See_here of Game.Thing.t
 
 		type t =
@@ -27,8 +45,9 @@ module Make =
 				panel : D.Text_view.t;
 				status : D.Text_view.t;
 				map : D.Chars_view.t;
-				do_popup : t -> (D.Text_view.t -> unit) -> unit;
+				do_popup : t -> (D.Text_view.t -> Key.t option -> bool) -> unit;
 				styles : Styles.t;
+				list_ids : string array;
 				mutable messages : message list;
 			}
 
@@ -65,12 +84,40 @@ module Make =
 			))
 
 		let show_list title to_string list ui =
-			ui.do_popup ui begin fun view ->
+			let start_i = ref 0 in
+			let len = List.length list in
+			let max_id_len = Array.fold_left (fun m k -> max m (String.length k)) 0 ui.list_ids in
+			ui.do_popup ui begin fun view key ->
+				let page_size = min (Array.length ui.list_ids) (let _, dimy = D.Text_view.dim view in dimy - 3) in
+				let continue = ref true in
+				Key.(match key with
+				| None -> ()
+				| Some key ->
+					begin match key with
+					| End -> continue := false
+					| Page_up -> start_i := max 0 (!start_i - page_size)
+					| Page_down -> start_i := let i = !start_i + page_size in if i >= len then !start_i else i
+					| _ -> ()
+					end
+				);
 				D.Text_view.clear view;
 				D.Text_view.draw view ~style:ui.styles.Styles.popup_label (1, 0) title;
+				let offset_y =
+					if !start_i > 0 then begin
+						D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1) "...";
+						1
+					end else 0 in
 				List.iteri begin fun i x ->
-					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1 + i) (to_string x)
-				end list
+					if i >= !start_i && i < min len (!start_i + page_size) then begin
+						let y = 1 + offset_y + i - !start_i in
+						D.Text_view.draw view ~style:ui.styles.Styles.popup_key (1, y) ui.list_ids.(i - !start_i);
+						D.Text_view.draw view ~style:ui.styles.Styles.popup_text (max_id_len + 2, y) (to_string x)
+					end;
+				end list;
+				if !start_i + page_size < len then
+					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1 + page_size) "...";
+				D.Text_view.refresh view;
+				!continue
 			end
 
 		let string_of_game_message =
@@ -89,6 +136,7 @@ module Make =
 			let p = Printf.sprintf in
 			let thing = string_of_thing in
 			function
+			| Dead -> "You are dead!"
 			| See_here t -> p "There is a %s here." (thing t)
 
 		let draw_panel styles view =
@@ -156,13 +204,14 @@ module Make =
 				done
 			done
 
-		let make ~panel ~status ~map ~do_popup ~styles =
+		let make ~panel ~status ~map ~do_popup ~styles ~list_ids =
 			{
 				panel = panel;
 				status = status;
 				map = map;
 				do_popup = do_popup;
 				styles = styles;
+				list_ids = list_ids;
 				messages = [];
 			}
 
@@ -178,18 +227,10 @@ module Make =
 			D.Chars_view.refresh ui.map;
 			ui.messages <- []
 
-		module Key =
-			struct
-				type game_keys =
-					| N | S | E | W | NE | NW | SE | SW
-					| Pick_up
-					| Inventory
-					| Quit
-			end
-
 		let update_game game ui =
 			match game.Game.player with
-			| None -> ()
+			| None ->
+				ui.messages <- Dead::ui.messages
 			| Some player ->
 				let at = player.Game.Being.at in
 				let things = Game.((Map.get game.map at).Cell.things) in
@@ -218,6 +259,7 @@ module Make =
 				show_list "Inventory" string_of_thing player.Game.Being.inv ui;
 				[]
 			| Quit -> [Game.Quit]
+			| _ -> []
 			)
 
 		let handle_input game key ui =
