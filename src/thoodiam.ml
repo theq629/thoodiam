@@ -235,7 +235,7 @@ let choose_init_pos map is_clear rng =
 	run 1
 
 let make_stuff game rng num is_clear =
-	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer|]) in
+	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer; leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|]) in
 	let rand_point rng =
 		let dimx, dimy = Game.Map.dim game.Game.map in
 		Random.State.int rng dimx, Random.State.int rng dimy in

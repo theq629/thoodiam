@@ -1,3 +1,5 @@
+open Std
+
 module Make =
 	functor (D : Display.I) ->
 	struct
@@ -25,9 +27,41 @@ module Make =
 				mutable messages : message list;
 			}
 
+		let join_opt_strings opt_strs =
+			String.concat " " (List.filter_map (fun x -> x) opt_strs)
+
+		let combat_to_string comb =
+			let open Game in
+			let p = Printf.sprintf in
+			Combat.(join_opt_strings [
+					if not (Dice.is_zero comb.damage) then
+						Some (p "[%i,%s]" comb.accuracy (Dice.to_string comb.damage))
+					else if comb.accuracy != 0 then
+						Some (p "[%i]" comb.accuracy)
+					else
+						None;
+					if not (Dice.is_zero comb.protection) then
+						Some (p "[%i,%s]" comb.evasion (Dice.to_string comb.protection))
+					else if comb.evasion != 0 then
+						Some (p "[%i]" comb.evasion)
+					else
+						None
+				])
+
+		let thing_to_string thing =
+			let open Game in
+			Thing.(Kind.(
+				let k = thing.kind in
+				join_opt_strings [
+						Some k.name;
+						Opt.map (fun c -> combat_to_string c) k.melee;
+						Opt.map (fun c -> combat_to_string c) k.armour
+					]
+			))
+
 		let game_message_to_string =
 			let p = Printf.sprintf in
-			let thing t = Game.Thing.(t.kind.Kind.name) in
+			let thing = thing_to_string in
 			let being b = Game.Being.(Game.Thing.((b.body.kind.Kind.name))) in
 			Game.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
@@ -39,7 +73,7 @@ module Make =
 
 		let ui_message_to_string =
 			let p = Printf.sprintf in
-			let thing t = Game.Thing.(t.kind.Kind.name) in
+			let thing = thing_to_string in
 			function
 			| See_here t -> p "There is a %s here." (thing t)
 

@@ -25,6 +25,9 @@ module Dice =
 					let roll = Random.State.int rng dice.sides in
 					run (sum + roll) (i - 1) in
 			run 0 dice.num
+
+		let is_zero d =
+			d.num == 0 || d.sides == 0
 	end
 
 module Combat =
