@@ -40,14 +40,41 @@ let make_styles disp =
 		})) in
 	ui_styles, extra_styles
 
+let process_game_input ch =
+	Ui.Key.(
+		if ch == int_of_char 'Q' then Some Quit
+		else if ch == int_of_char 'g' then Some Pick_up
+		else if ch == int_of_char 'i' then Some Inventory
+		else if ch == Curses.Key.up || ch == int_of_char 'k' then Some N
+		else if ch == Curses.Key.down || ch == int_of_char 'j' then Some S
+		else if ch == Curses.Key.left || ch == int_of_char 'h' then Some W
+		else if ch == Curses.Key.right || ch == int_of_char 'l' then Some E
+		else if ch == int_of_char 'y' then Some NW
+		else if ch == int_of_char 'u' then Some NE
+		else if ch == int_of_char 'b' then Some SW
+		else if ch == int_of_char 'n' then Some SE
+		else None
+	)
+
+let process_popup_input ch =
+	Ui.Key.(
+		if ch == 27 || ch == 10 then Some End
+		else if ch == int_of_char '[' || ch == int_of_char ' ' then Some Page_down
+		else if ch == int_of_char ']' then Some Page_up
+		else None
+	)
+
 let do_popup disp extra_styles parent_win ui f =
 	let win = Disp.Window.make disp parent_win (0, 0) (Disp.Window.dim parent_win) in
 	let view = Disp.Text_view.make disp win in
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.popup_bg view;
-	Disp.Text_view.draw view (0, 0) "hello";
-	f view;
-	Disp.Text_view.refresh view;
-	Disp.any_key disp;
+	let callback = f view in
+	callback None;
+	let rec run () =
+		if callback (process_popup_input (Disp.get_key disp)) then begin
+			run ()
+		end else () in
+	run ();
 	Disp.Window.remove win
 
 let make_ui ui_styles extra_styles disp =
@@ -66,22 +93,6 @@ let make_ui ui_styles extra_styles disp =
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.status_bg ui.Ui.status;
 	ui
 
-let process_input ch =
-	Ui.Key.(
-		if ch == int_of_char 'Q' then Some Quit
-		else if ch == int_of_char 'g' then Some Pick_up
-		else if ch == int_of_char 'i' then Some Inventory
-		else if ch == Curses.Key.up || ch == int_of_char 'k' then Some N
-		else if ch == Curses.Key.down || ch == int_of_char 'j' then Some S
-		else if ch == Curses.Key.left || ch == int_of_char 'h' then Some W
-		else if ch == Curses.Key.right || ch == int_of_char 'l' then Some E
-		else if ch == int_of_char 'y' then Some NW
-		else if ch == int_of_char 'u' then Some NE
-		else if ch == int_of_char 'b' then Some SW
-		else if ch == int_of_char 'n' then Some SE
-		else None
-	)
-
 let run map_seed things_seed =
 	let game = Thoodiam.init map_seed things_seed in
 	Disp.with_display begin fun disp ->
@@ -89,7 +100,7 @@ let run map_seed things_seed =
 		let ui = make_ui ui_styles extra_styles disp in
 		while match game.Game.player with Some _ -> true | None -> false do
 			Ui.draw ui disp game;
-			match process_input (Disp.get_key disp) with
+			match process_game_input (Disp.get_key disp) with
 			| Some k ->
 				Game.update game (Ui.handle_input game ui k);
 				Ui.update_game game ui

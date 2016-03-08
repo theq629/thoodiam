@@ -115,7 +115,7 @@ module Make =
 					end;
 				end list;
 				if !start_i + page_size < len then
-					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1 + page_size) "...";
+					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1 + offset_y + page_size) "...";
 				D.Text_view.refresh view;
 				!continue
 			end
