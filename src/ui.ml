@@ -11,6 +11,9 @@ module Make =
 					{
 						panel_text : style;
 						status_text : style;
+						popup_text : style;
+						popup_label : style;
+						popup_key : style;
 						map_fov : style;
 						map_seen : style;
 					}
@@ -24,13 +27,15 @@ module Make =
 				panel : D.Text_view.t;
 				status : D.Text_view.t;
 				map : D.Chars_view.t;
+				do_popup : t -> (D.Text_view.t -> unit) -> unit;
+				styles : Styles.t;
 				mutable messages : message list;
 			}
 
 		let join_opt_strings opt_strs =
 			String.concat " " (List.filter_map (fun x -> x) opt_strs)
 
-		let combat_to_string comb =
+		let string_of_combat comb =
 			let open Game in
 			let p = Printf.sprintf in
 			Combat.(join_opt_strings [
@@ -48,20 +53,29 @@ module Make =
 						None
 				])
 
-		let thing_to_string thing =
+		let string_of_thing thing =
 			let open Game in
 			Thing.(Kind.(
 				let k = thing.kind in
 				join_opt_strings [
 						Some k.name;
-						Opt.map (fun c -> combat_to_string c) k.melee;
-						Opt.map (fun c -> combat_to_string c) k.armour
+						Opt.map (fun c -> string_of_combat c) k.melee;
+						Opt.map (fun c -> string_of_combat c) k.armour
 					]
 			))
 
-		let game_message_to_string =
+		let show_list title to_string list ui =
+			ui.do_popup ui begin fun view ->
+				D.Text_view.clear view;
+				D.Text_view.draw view ~style:ui.styles.Styles.popup_label (1, 0) title;
+				List.iteri begin fun i x ->
+					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1 + i) (to_string x)
+				end list
+			end
+
+		let string_of_game_message =
 			let p = Printf.sprintf in
-			let thing = thing_to_string in
+			let thing = string_of_thing in
 			let being b = Game.Being.(Game.Thing.((b.body.kind.Kind.name))) in
 			Game.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
@@ -71,9 +85,9 @@ module Make =
 			| Die b -> p "the %s dies" (being b)
 			))
 
-		let ui_message_to_string =
+		let string_of_ui_message =
 			let p = Printf.sprintf in
-			let thing = thing_to_string in
+			let thing = string_of_thing in
 			function
 			| See_here t -> p "There is a %s here." (thing t)
 
@@ -106,8 +120,8 @@ module Make =
 			let module V = D.Text_view in
 			V.clear view;
 			let msg_str = String.concat " " (
-					(List.map game_message_to_string game_messages)
-					@ (List.map ui_message_to_string ui_messages)
+					(List.map string_of_game_message game_messages)
+					@ (List.map string_of_ui_message ui_messages)
 				) in
 			(* TODO: handle scrolling if we totally run out of space *)
 			if String.length msg_str > 0 then begin
@@ -142,19 +156,21 @@ module Make =
 				done
 			done
 
-		let make ~panel ~status ~map =
+		let make ~panel ~status ~map ~do_popup ~styles =
 			{
 				panel = panel;
 				status = status;
 				map = map;
+				do_popup = do_popup;
+				styles = styles;
 				messages = [];
 			}
 
-		let draw ui styles disp game =
-			draw_panel styles ui.panel;
-			draw_status styles game.Game.messages ui.messages ui.status;
+		let draw ui disp game =
+			draw_panel ui.styles ui.panel;
+			draw_status ui.styles game.Game.messages ui.messages ui.status;
 			begin match game.Game.player with
-			| Some p -> draw_map styles ui.map game p.Game.Being.at
+			| Some p -> draw_map ui.styles ui.map game p.Game.Being.at
 			| None -> ()
 			end;
 			D.Text_view.refresh ui.panel;
@@ -164,9 +180,10 @@ module Make =
 
 		module Key =
 			struct
-				type keys =
+				type game_keys =
 					| N | S | E | W | NE | NW | SE | SW
 					| Pick_up
+					| Inventory
 					| Quit
 			end
 
@@ -180,7 +197,7 @@ module Make =
 					ui.messages <- (See_here t) :: ui.messages
 				end (List.filter (fun t -> t != player.Game.Being.body) things)
 
-		let handle_player_input game player =
+		let handle_player_input game player ui =
 			Key.(function
 			| N -> [Game.(Move N)]
 			| S -> [Game.(Move S)]
@@ -197,12 +214,15 @@ module Make =
 				| [] -> []
 				| t::_ -> [Game.(Pick_up t)]
 				end
+			| Inventory ->
+				show_list "Inventory" string_of_thing player.Game.Being.inv ui;
+				[]
 			| Quit -> [Game.Quit]
 			)
 
-		let handle_input game key =
+		let handle_input game key ui =
 			match game.Game.player with
 			| None -> []
 			| Some player ->
-				handle_player_input game player key
+				handle_player_input game player key ui
 	end

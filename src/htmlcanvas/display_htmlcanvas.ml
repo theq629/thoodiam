@@ -179,6 +179,19 @@ let input_loop ui f =
 		refresh_watcher := Some (Watcher_set.add ui.refresh_watchers on_refresh)
 	end
 
+let get_key ui =
+	(* TODO: really need a better way to handle input to avoid busy waiting *)
+	let got_key = ref None in
+	input_loop ui begin fun key ->
+		got_key := key;
+		false
+	end;
+	let rec run () =
+		match !got_key with
+		| Some k -> k
+		| None -> run () in
+	run ()
+
 module Colour =
 	struct
 		type t = Js.js_string Js.t

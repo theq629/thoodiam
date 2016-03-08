@@ -16,6 +16,7 @@ val init : Dom_html.element Js.t -> t
 val close : t -> unit
 val root : t -> Window.t
 val input_loop : t -> (key option -> bool) -> unit
+val get_key : t -> key
 
 module Colour :
 	sig

@@ -10,6 +10,7 @@ module Styles =
 			{
 				panel_bg : col;
 				status_bg : col;
+				popup_bg : col;
 				map_bg : col;
 				death_bg : col;
 				death_text : style;
@@ -22,6 +23,9 @@ let make_styles disp =
 		Ui.Styles.(Disp.Style.({
 			panel_text = make disp ~fg:(c "black");
 			status_text = make disp ~fg:(c "black");
+			popup_label = make disp ~fg:(c "yellow");
+			popup_key = make disp ~fg:(c "yellow");
+			popup_text = make disp ~fg:(c "black");
 			map_fov = make disp ~fg:(c "yellow");
 			map_seen = make disp ~fg:(c "white");
 		})) in
@@ -29,23 +33,33 @@ let make_styles disp =
 		Styles.(Disp.Style.({
 			panel_bg = c "white";
 			status_bg = c "white";
+			popup_bg = c "black";
 			map_bg = c "black";
 			death_bg = c "black";
 			death_text = make disp ~fg:(c "red");
 		})) in
 	ui_styles, extra_styles
 
-let make_ui styles disp =
+let do_popup disp extra_styles parent_win ui f =
+	let win = Disp.Window.make disp parent_win (0, 0) (Disp.Window.dim parent_win) in
+	let view = Disp.Text_view.make disp win in
+	Disp.Text_view.config ~bg:extra_styles.Styles.popup_bg view;
+	f view;
+	ignore (Disp.get_key disp)
+
+let make_ui ui_styles extra_styles disp =
 	let root = Disp.root disp in
 	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.1 in
 	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.9 in
 	let ui = Ui.make
 			~panel:(Disp.Text_view.make disp panel_win)
 			~status:(Disp.Text_view.make disp status_win)
-			~map:(Disp.Chars_view.make disp map_win) in
-	Disp.Text_view.config ~bg:styles.Styles.panel_bg ui.Ui.panel;
-	Disp.Text_view.config ~bg:styles.Styles.status_bg ui.Ui.status;
-	Disp.Chars_view.config ~bg:styles.Styles.map_bg ui.Ui.map;
+			~map:(Disp.Chars_view.make disp map_win)
+			~styles:ui_styles
+			~do_popup:(do_popup disp extra_styles map_win) in
+	Disp.Text_view.config ~bg:extra_styles.Styles.panel_bg ui.Ui.panel;
+	Disp.Text_view.config ~bg:extra_styles.Styles.status_bg ui.Ui.status;
+	Disp.Chars_view.config ~bg:extra_styles.Styles.map_bg ui.Ui.map;
 	ui
 
 let show_death disp styles =
@@ -61,6 +75,7 @@ let process_input key =
 	Ui.Key.(
 		if key = 81 then Some Quit
 		else if key = 71 then Some Pick_up
+		else if key = 73 then Some Inventory
 		else if key = 38 || key = 75 then Some N
 		else if key = 40 || key = 74 then Some S
 		else if key = 37 || key = 72 then Some W
@@ -81,20 +96,20 @@ let onload _ =
 	let game = Thoodiam.init map_seed things_seed in
 	let disp = Disp.init Dom_html.document##body in
 	let ui_styles, extra_styles = make_styles disp in
-	let ui = make_ui extra_styles disp in
-	Ui.draw ui ui_styles disp game;
+	let ui = make_ui ui_styles extra_styles disp in
+	Ui.draw ui disp game;
 	Disp.input_loop disp begin fun event ->
 		begin match event with
 		| None -> ()
 		| Some key ->
 			begin match process_input key with
 			| Some k ->
-				Game.update game (Ui.handle_input game k);
+				Game.update game (Ui.handle_input game ui k);
 				Ui.update_game game ui
 			| None -> ()
 			end
 		end;
-		Ui.draw ui ui_styles disp game;
+		Ui.draw ui disp game;
 		begin match game.Game.player with
 		| Some _ -> true
 		| None ->

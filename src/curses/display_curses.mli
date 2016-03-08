@@ -9,6 +9,8 @@ module Window :
 		val make : disp -> t -> screen_pos -> screen_pos -> t
 		val split : disp -> t -> split_dir -> screen_pos -> (t * t)
 		val dim : t -> screen_pos
+		val refresh : t -> unit
+		val remove : t -> unit
 	end
 
 val init : unit -> t

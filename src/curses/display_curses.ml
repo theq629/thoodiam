@@ -67,7 +67,8 @@ module Window =
 			Curses.scrollok cwin false
 
 		let make disp parent (x, y) (dimx, dimy) =
-			let cwin = Curses.subwin parent.cwin dimy dimx y x in
+			let cwin = Curses.newwin dimy dimx (parent.y + y) (parent.x + x) in
+			Curses.refresh ();
 			prepare cwin;
 			{
 				cwin = cwin;
@@ -83,15 +84,23 @@ module Window =
 				| Top | Bottom -> par_dimx, dimy, par_dimx, (par_dimy - dimy) in
 			let x1, y1, x2, y2 =
 				match dir with
-				| Left -> 0, 0, dimx1, 0
-				| Right -> dimx2, 0, 0, 0
-				| Top -> 0, 0, 0, dimy1
-				| Bottom -> 0, dimy2, 0, 0 in
-			let cwin1 = Curses.derwin parent.cwin dimy1 dimx1 y1 x1 in
-			let cwin2 = Curses.derwin parent.cwin dimy2 dimx2 y2 x2 in
+				| Left -> parent.x, parent.y, parent.x + dimx1, parent.y
+				| Right -> parent.x + dimx2, parent.y, parent.x, parent.y
+				| Top -> parent.x, parent.y, parent.x, parent.y + dimy1
+				| Bottom -> parent.x, parent.y + dimy2, parent.x, parent.y in
+			let cwin1 = Curses.newwin dimy1 dimx1 y1 x1 in
+			let cwin2 = Curses.newwin dimy2 dimx2 y2 x2 in
 			prepare cwin1;
 			prepare cwin2;
+			Curses.refresh ();
 			{ cwin = cwin1; x = x1; y = y1 }, { cwin = cwin2; x = x2; y = y2 }
+
+		let remove win =
+			ignore (Curses.delwin win.cwin)
+
+		(* TODO *)
+		let refresh win =
+			ignore (Curses.wrefresh win.cwin)
 			
 		(* TODO *)
 		let any_key win =
