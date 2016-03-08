@@ -54,6 +54,7 @@ let show_death disp styles =
 	let win = Disp.Window.make disp root (0, 0) (Disp.Window.dim root) in
 	let view = Disp.Text_view.make disp win in
 	Disp.Text_view.config ~bg:styles.Styles.death_bg view;
+	Disp.Text_view.clear view;
 	Disp.Text_view.draw view ~style:styles.Styles.death_text (1, 1) "You are dead.";
 	Disp.Text_view.refresh view
 
@@ -87,7 +88,12 @@ let onload _ =
 			end
 		end;
 		Ui.draw ui ui_styles disp game;
-		true
+		begin match game.Game.player with
+		| Some _ -> true
+		| None ->
+			show_death disp extra_styles;
+			false
+		end
 	end;
 	Js._false
 
