@@ -65,4 +65,36 @@ module Make =
 			D.Text_view.refresh ui.panel;
 			D.Text_view.refresh ui.status;
 			D.Chars_view.refresh ui.map
+
+		module Key =
+			struct
+				type keys =
+					| N | S | E | W | NE | NW | SE | SW
+					| Pick_up
+					| Quit
+			end
+
+		let handle_input game =
+			Key.(function
+			| N -> [Game.(Move N)]
+			| S -> [Game.(Move S)]
+			| E -> [Game.(Move E)]
+			| W -> [Game.(Move W)]
+			| NE -> [Game.(Move NE)]
+			| NW -> [Game.(Move NW)]
+			| SE -> [Game.(Move SE)]
+			| SW -> [Game.(Move SW)]
+			| Pick_up ->
+				begin match game.Game.player with
+				| None -> []
+				| Some player ->
+					let at = player.Game.Being.at in
+					let things = Game.((Map.get game.map at).Cell.things) in
+					begin match things with
+					| [] -> []
+					| t::_ -> [Game.(Pick_up t)]
+					end
+				end
+			| Quit -> [Game.Quit]
+			)
 	end

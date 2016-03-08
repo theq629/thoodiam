@@ -105,10 +105,10 @@ module Being =
 		type t =
 			{
 				vison_radius : int;
-				mutable at : Map.Location.t;
 				body : Thing.t;
-				inv : Thing.t list;
-				equip : (equip_slot * Thing.t) list;
+				mutable at : Map.Location.t;
+				mutable inv : Thing.t list;
+				mutable equip : (equip_slot * Thing.t) list;
 			}
 	end
 
@@ -137,11 +137,11 @@ type command =
 	| Unequip of Being.equip_slot
 	| Quit
 
-type result =
-	| Move_blocked
-	| Thing_not_found
-	| Equip_slot_full
-	| Equip_slot_empty
+type message =
+	| Move_blocked of Map.Location.t
+	| Thing_not_found of Thing.t
+	| Equip_slot_full of Being.equip_slot
+	| Equip_slot_empty of Being.equip_slot
 
 type t =
 	{
@@ -149,6 +149,7 @@ type t =
 		mutable player : Being.t option;
 		player_seen : tile option Map.t;
 		player_fov : bool Map.t;
+		mutable messages : message list;
 	}
 
 let dir_to_vec = function
@@ -161,21 +162,39 @@ let dir_to_vec = function
 	| SE -> (1, 1)
 	| SW -> (-1, 1)
 
+let remove_from_list xs x =
+	let found = ref false in
+	let xs1 = List.filter begin fun y ->
+			if x = y then begin
+				found := true;
+				false
+			end else
+				true
+		end xs in
+	(* TODO: faster? *)
+	!found, xs1
+
 let add_thing game p thing =
 	let cell = Map.get game.map p in
 	cell.Cell.things <- thing::cell.Cell.things
 
 let remove_thing game p thing =
 	let cell = Map.get game.map p in
-	cell.Cell.things <- List.filter (fun t -> t != thing) cell.Cell.things
+	let found, things1 = remove_from_list cell.Cell.things thing in
+	cell.Cell.things <- things1;
+	found
 
 let remove_being game being =
 	remove_thing game being.Being.at being.Being.body
 
 let place_being game being at =
-	remove_thing game being.Being.at being.Being.body;
+	let found = remove_thing game being.Being.at being.Being.body in
 	add_thing game at being.Being.body;
-	being.Being.at <- at
+	being.Being.at <- at;
+	found
+
+let add_msg game msg =
+	game.messages <- msg::game.messages
 
 let init_being ?(vison_radius=10) game body at =
 	let being = Being.({
@@ -185,7 +204,7 @@ let init_being ?(vison_radius=10) game body at =
 			inv = [];
 			equip = [];
 		}) in
-	place_being game being being.Being.at;
+	ignore (place_being game being being.Being.at);
 	being
 
 let update_vision game player =
@@ -216,6 +235,7 @@ let init map fov_radius player_body player_at configure =
 			player = None;
 			player_seen = Map.map map (fun _ v -> None);
 			player_fov = Map.map map (fun _ _ -> false);
+			messages = [];
 		} in
 	configure game;
 	let player = init_being game player_body player_at in
@@ -224,33 +244,58 @@ let init map fov_radius player_body player_at configure =
 	game
 
 let update_player game player cmd =
+	(* TODO: consistency checks for thing locations? *)
+	(* TODO: return status *)
 	match cmd with
 	| Quit -> begin
-			remove_being game player;
+			ignore (remove_being game player);
 			game.player <- None
 		end
 	| Move dir -> begin
 			let p1 = Vec.(player.Being.at + dir_to_vec dir) in
 			if (Map.is_valid game.map p1)
 				&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
-				place_being game player p1;
+				ignore (place_being game player p1);
 				update_vision game player
-			end
+			end else
+				add_msg game (Move_blocked p1)
 		end
 	| Pick_up thing -> begin
-			(* TODO *)
+			let found = remove_thing game player.Being.at thing in
+			if found then
+				player.Being.inv <- thing::player.Being.inv
+			else
+				add_msg game (Thing_not_found thing)
 		end
 	| Drop thing -> begin
-			(* TODO *)
+			let found, inv1 = remove_from_list player.Being.inv thing in
+			if found then begin
+				player.Being.inv <- inv1;
+				add_thing game player.Being.at thing
+			end else
+				add_msg game (Thing_not_found thing)
 		end
-	| Equip thing -> begin
-			(* TODO *)
+	| Equip (thing, equip_slot) -> begin
+			if not (List.mem_assoc equip_slot player.Being.equip) then begin
+				let found, inv1 = remove_from_list player.Being.inv thing in
+				if found then begin
+					player.Being.inv <- inv1;
+					player.Being.equip <- (equip_slot, thing)::player.Being.equip
+				end else
+					add_msg game (Thing_not_found thing)
+			end else
+				add_msg game (Equip_slot_full equip_slot)
 		end
 	| Unequip equip_slot -> begin
-			(* TODO *)
+			try
+				let thing = List.assoc equip_slot player.Being.equip in
+				add_thing game player.Being.at thing
+			with Not_found ->
+				add_msg game (Equip_slot_full equip_slot)
 		end
 
-let update game cmd =
+let update game cmds =
 	match game.player with
-	| Some p -> update_player game p cmd
+	| Some p ->
+		List.iter (fun c -> update_player game p c) cmds
 	| None -> ()

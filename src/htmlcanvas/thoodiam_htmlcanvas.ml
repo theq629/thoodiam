@@ -59,16 +59,19 @@ let show_death disp styles =
 	Disp.Text_view.refresh view
 
 let process_input key =
-	if key = 81 then Some Game.Quit
-	else if key = 38 || key = 75 then Some Game.(Move N)
-	else if key = 40 || key = 74 then Some Game.(Move S)
-	else if key = 37 || key = 72 then Some Game.(Move W)
-	else if key = 39 || key = 76 then Some Game.(Move E)
-	else if key = 89 then Some Game.(Move NW)
-	else if key = 85 then Some Game.(Move NE)
-	else if key = 66 then Some Game.(Move SW)
-	else if key = 78 then Some Game.(Move SE)
-	else None
+	Ui.Key.(
+		if key = 81 then Some Quit
+		else if key = 103 then Some Pick_up
+		else if key = 38 || key = 75 then Some N
+		else if key = 40 || key = 74 then Some S
+		else if key = 37 || key = 72 then Some W
+		else if key = 39 || key = 76 then Some E
+		else if key = 89 then Some NW
+		else if key = 85 then Some NE
+		else if key = 66 then Some SW
+		else if key = 78 then Some SE
+		else None
+	)
 
 let onload _ =
 	let map_seed = 0 in
@@ -83,7 +86,7 @@ let onload _ =
 		| None -> ()
 		| Some key ->
 			begin match process_input key with
-			| Some c -> Game.update game c
+			| Some k -> Game.update game (Ui.handle_input game k)
 			| None -> ()
 			end
 		end;
