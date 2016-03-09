@@ -88,6 +88,11 @@ module Make =
 					]
 			))
 
+		let string_of_thing_inv thing =
+			Game_data.Thing.(
+				Printf.sprintf "%s %0.2f" (string_of_thing thing) thing.kind.Kind.weight
+			)
+
 		let show_list title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
 			let start_i = ref 0 in
 			let sel = ref [] in
@@ -317,7 +322,7 @@ module Make =
 			| Quit ->
 				do_cmds [Game.Quit]
 			| Inventory ->
-				show_list "Inventory" string_of_thing player.Game_data.Being.inv ~select:false ui begin fun _ ->
+				show_list "Inventory" string_of_thing_inv player.Game_data.Being.inv ~select:false ui begin fun _ ->
 					()
 				end
 			| Equipment ->
@@ -341,7 +346,7 @@ module Make =
 						end
 				end
 			| Drop ->
-				show_list "Drop" string_of_thing player.Game_data.Being.inv ~multiple:true ui begin fun thing ->
+				show_list "Drop" string_of_thing_inv player.Game_data.Being.inv ~multiple:true ui begin fun thing ->
 					do_cmds [Game.(Drop thing)]
 				end
 			| Pick_up ->
@@ -351,7 +356,7 @@ module Make =
 				| [] -> ()
 				| [t] -> do_cmds [Game.(Pick_up t)]
 				| ts ->
-					show_list "Get" string_of_thing ts ~multiple:true ui begin fun thing ->
+					show_list "Get" string_of_thing_inv ts ~multiple:true ui begin fun thing ->
 						do_cmds [Game.(Pick_up thing)]
 					end
 				end
