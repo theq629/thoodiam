@@ -54,6 +54,7 @@ module Make =
 				styles : Styles.t;
 				list_ids : string array;
 				mutable messages : message list;
+				mutable user_quit : bool;
 			}
 
 		let join_opt_strings opt_strs =
@@ -311,6 +312,7 @@ module Make =
 				styles = styles;
 				list_ids = list_ids;
 				messages = [];
+				user_quit = false;
 			}
 
 		let draw ui disp game =
@@ -353,6 +355,7 @@ module Make =
 			| SE -> move_or_attack Game.SE
 			| SW -> move_or_attack Game.SW
 			| Quit ->
+				ui.user_quit <- true;
 				do_cmds [Game.Quit]
 			| Inventory ->
 				show_list "Inventory" string_of_thing_inv player.Game_data.Being.inv ~select:false ui begin fun _ ->
@@ -395,7 +398,11 @@ module Make =
 
 		let handle_input game ui key do_cmds =
 			match game.Game.player with
-			| None -> ()
+			| None ->
+				begin match key with
+				| Key.Quit -> ui.user_quit <- true
+				| _ -> ()
+				end
 			| Some player ->
 				handle_player_input game player ui key do_cmds
 	end

@@ -116,14 +116,14 @@ let run map_seed things_seed game_seed =
 	Disp.with_display begin fun disp ->
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui ui_styles extra_styles disp in
-		while match game.Game.player with Some _ -> true | None -> false do
+		while not ui.Ui.user_quit do
 			Ui.draw ui disp game;
 			match process_game_input (Disp.get_key disp) with
 			| Some k ->
 				Ui.handle_input game ui k begin fun cmds ->
 					Game.update game cmds;
-					Ui.update_game game ui
-				end
+				end;
+				Ui.update_game game ui
 			| None -> ()
 		done
 	end

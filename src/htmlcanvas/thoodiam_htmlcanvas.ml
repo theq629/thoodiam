@@ -124,8 +124,8 @@ let update_game disp ui game key =
 	Opt.iter begin fun key ->
 		Ui.handle_input game ui key begin fun cmds ->
 			Game.update game cmds;
-			Ui.update_game game ui
-		end
+		end;
+		Ui.update_game game ui
 	end (Opt.flat_map process_input key);
 	Ui.draw ui disp game
 

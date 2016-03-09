@@ -73,6 +73,17 @@ let dir_to_vec = function
 	| SE -> (1, 1)
 	| SW -> (-1, 1)
 
+let vec_to_dir = function
+	| (0, -1) -> Some N
+	| (0, 1) -> Some S
+	| (1, 0) -> Some E
+	| (-1, 0) -> Some W
+	| (1, -1) -> Some NE
+	| (-1, -1) -> Some NW
+	| (1, 1) -> Some SE
+	| (-1, 1) -> Some SW
+	| _ -> None
+
 let round_to_int x = int_of_float (0.5 +. x)
 
 let remove_from_list xs x =
@@ -308,14 +319,28 @@ let time_for_action being cmd =
 		end
 	| _ -> base_time
 
+let queue_action game being cmd =
+	let need_time = time_for_action being cmd in
+	game.action_queue <- Action_queue.add game.action_queue (game.time +. need_time, being, cmd)
+
+let update_ai game =
+	Opt.iter begin fun player ->
+		List.iter begin fun being ->
+			if being != player then
+				Opt.iter begin fun dir ->
+					queue_action game being (Melee_attack dir)
+				end (vec_to_dir Vec.(player.Being.at - being.Being.at))
+		end game.beings
+	end game.player
+
 let update game cmds =
 	game.messages <- [];
+	update_ai game;
 	begin match game.player with
 	| None -> ()
 	| Some being ->
 		List.iter begin fun cmd ->
-			let need_time = time_for_action being cmd in
-			game.action_queue <- Action_queue.add game.action_queue (game.time +. need_time, being, cmd)
+			queue_action game being cmd
 		end cmds
 	end;
 	while not (Action_queue.is_empty game.action_queue) do

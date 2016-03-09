@@ -32,10 +32,13 @@ let for_clear_points ?max_tries map is_clear num rng f =
 				run (t + 1) n in
 	run 0 num
 
+let rand_weapon_kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer|])
+let rand_armour_kinds = Thing_kinds.([|leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|])
+let rand_thing_kinds = Array.append rand_weapon_kinds rand_armour_kinds
+
 let make_stuff game rng num is_clear =
-	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer; leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|]) in
 	for_clear_points game.Game.map is_clear num rng begin fun p ->
-		let kind = Rng.Uniform.array_elt kinds rng in
+		let kind = Rng.Uniform.array_elt rand_thing_kinds rng in
 		let thing = Game_data.Thing.make kind in
 		Game.add_thing game p thing
 	end
@@ -47,7 +50,15 @@ let make_creatures game rng num is_clear =
 		|]) in
 	for_clear_points game.Game.map is_clear num rng begin fun p ->
 		let kind, skills = Rng.Uniform.array_elt kinds rng in
-		Game.init_being game kind  skills p
+		let being = Game.init_being game kind skills p in
+		let weapon = Game_data.Thing.make (Rng.Uniform.array_elt rand_weapon_kinds rng) in
+		let armour = Game_data.Thing.make (Rng.Uniform.array_elt rand_armour_kinds rng) in
+		Game_data.(
+			being.Being.equip <- [
+					Equip_slots.melee_weapon, weapon;
+					Equip_slots.armour, armour
+				]
+		)
 	end
 
 let init map_seed things_seed game_seed =
