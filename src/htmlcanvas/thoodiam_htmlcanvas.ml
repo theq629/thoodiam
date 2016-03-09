@@ -130,8 +130,9 @@ let update_game disp ui game key =
 	Ui.draw ui disp game
 
 let onload _ =
-	let map_seed = 0 in
-	let things_seed = 0 in
+	let time = int_of_float ((jsnew Js.date_now ())##getTime ()) in
+	let map_seed = time in
+	let things_seed = time in
 	let game = Thoodiam.init map_seed things_seed in
 	let disp = Disp.init Dom_html.document##body in
 	let ui_styles, extra_styles = make_styles disp in

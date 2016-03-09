@@ -129,8 +129,9 @@ let run map_seed things_seed =
 	end
 
 let _ =
-	let map_seed = ref 0 in
-	let things_seed = ref 0 in
+	let time = int_of_float (Unix.time ()) in
+	let map_seed = ref time in
+	let things_seed = ref time in
 	Args.(parse [
 			"-map-seed", Set_int map_seed,
 				"map generation seed";
