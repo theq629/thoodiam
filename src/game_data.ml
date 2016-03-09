@@ -1,3 +1,4 @@
+module Rng = Variates.Make(Variates.Stdlib_source)
 module Vec = Vectors.TwoD
 module Map = Tilemap.Square
 module Fov = Fov_adammil
@@ -22,7 +23,7 @@ module Dice =
 			let rec run sum i =
 				if i <= 0 then sum
 				else
-					let roll = Random.State.int rng dice.sides in
+					let roll = 1 + Rng.Uniform.int 0 dice.sides rng in
 					run (sum + roll) (i - 1) in
 			run 0 dice.num
 

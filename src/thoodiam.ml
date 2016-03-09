@@ -1,9 +1,10 @@
 module Mapgen = Mapgen.Make(Game.Map)
+module Rng = Game_data.Rng
 open Thoodiam_data
 
 let choose_init_pos map is_clear rng =
 	let rand_int r =
-		Random.State.int rng (2 * r) - r in
+		Rng.Uniform.int (-r) r rng in
 	let dim = Game.Map.dim map in
 	let centre = Game.Vec.(dim / 2) in
 	let rec run radius =
@@ -16,14 +17,13 @@ let make_stuff game rng num is_clear =
 	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer; leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|]) in
 	let rand_point rng =
 		let dimx, dimy = Game.Map.dim game.Game.map in
-		Random.State.int rng dimx, Random.State.int rng dimy in
+		Rng.Uniform.int 0 dimx rng, Rng.Uniform.int 0 dimy rng in
 	let max_tries = num * 10 in
 	let rec run t n =
 		if n <= 0 || t > max_tries then ()
 		else
-			let i = Random.State.int rng (Array.length kinds) in
-
-			let thing = Game_data.Thing.make kinds.(i) in
+			let kind = Rng.Uniform.array_elt kinds rng in
+			let thing = Game_data.Thing.make kind in
 			let p = rand_point rng in
 			if is_clear game.Game.map p then begin
 				Game.add_thing game p thing;
