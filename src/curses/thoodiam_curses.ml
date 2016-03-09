@@ -61,15 +61,18 @@ let process_popup_input ch =
 		if ch == 27 || ch == 10 then Some End
 		else if ch == int_of_char '[' || ch == int_of_char ' ' then Some Page_down
 		else if ch == int_of_char ']' then Some Page_up
+		else if ch == int_of_char 'd' then Some Drop
+		else if ch == int_of_char 'e' then Some Equip
+		else if ch == int_of_char 't' then Some Unequip
 		else None
 	)
 
-let do_popup disp extra_styles parent_win ui f =
+let do_popup disp extra_styles parent_win ui (f : Disp.Text_view.t -> Ui.Key.t option -> bool) =
 	let win = Disp.Window.make disp parent_win (0, 0) (Disp.Window.dim parent_win) in
 	let view = Disp.Text_view.make disp win in
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.popup_bg view;
 	let callback = f view in
-	callback None;
+	ignore (callback None);
 	let rec run () =
 		if callback (process_popup_input (Disp.get_key disp)) then begin
 			run ()
@@ -102,8 +105,10 @@ let run map_seed things_seed =
 			Ui.draw ui disp game;
 			match process_game_input (Disp.get_key disp) with
 			| Some k ->
-				Game.update game (Ui.handle_input game ui k);
-				Ui.update_game game ui
+				Ui.handle_input game ui k begin fun cmds ->
+					Game.update game cmds;
+					Ui.update_game game ui
+				end
 			| None -> ()
 		done
 	end

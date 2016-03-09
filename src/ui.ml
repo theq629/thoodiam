@@ -25,6 +25,9 @@ module Make =
 					| N | S | E | W | NE | NW | SE | SW
 					| Pick_up
 					| Inventory
+					| Drop
+					| Equip
+					| Unequip
 					| Page_up
 					| Page_down
 					| End
@@ -83,7 +86,7 @@ module Make =
 					]
 			))
 
-		let show_list title to_string list ui =
+		let show_list title to_string list ui f =
 			let start_i = ref 0 in
 			let len = List.length list in
 			let max_id_len = Array.fold_left (fun m k -> max m (String.length k)) 0 ui.list_ids in
@@ -97,6 +100,7 @@ module Make =
 					| End -> continue := false
 					| Page_up -> start_i := max 0 (!start_i - page_size)
 					| Page_down -> start_i := let i = !start_i + page_size in if i >= len then !start_i else i
+					| List_item i -> f (List.nth list i)
 					| _ -> ()
 					end
 				);
@@ -238,33 +242,38 @@ module Make =
 					ui.messages <- (See_here t) :: ui.messages
 				end (List.filter (fun t -> t != player.Game.Being.body) things)
 
-		let handle_player_input game player ui =
-			Key.(function
-			| N -> [Game.(Move N)]
-			| S -> [Game.(Move S)]
-			| E -> [Game.(Move E)]
-			| W -> [Game.(Move W)]
-			| NE -> [Game.(Move NE)]
-			| NW -> [Game.(Move NW)]
-			| SE -> [Game.(Move SE)]
-			| SW -> [Game.(Move SW)]
+		let handle_player_input game player ui key do_cmds =
+			Key.(match key with
+			| N -> do_cmds [Game.(Move N)]
+			| S -> do_cmds [Game.(Move S)]
+			| E -> do_cmds [Game.(Move E)]
+			| W -> do_cmds [Game.(Move W)]
+			| NE -> do_cmds [Game.(Move NE)]
+			| NW -> do_cmds [Game.(Move NW)]
+			| SE -> do_cmds [Game.(Move SE)]
+			| SW -> do_cmds [Game.(Move SW)]
 			| Pick_up ->
 				let at = player.Game.Being.at in
 				let things = Game.((Map.get game.map at).Cell.things) in
 				begin match List.filter (fun t -> t != player.Game.Being.body) things with
-				| [] -> []
-				| t::_ -> [Game.(Pick_up t)]
+				| [] -> ()
+				| t::_ -> do_cmds [Game.(Pick_up t)]
 				end
 			| Inventory ->
-				show_list "Inventory" string_of_thing player.Game.Being.inv ui;
-				[]
-			| Quit -> [Game.Quit]
-			| _ -> []
+				show_list "Inventory" string_of_thing player.Game.Being.inv ui begin fun _ ->
+					()
+				end
+			| Drop ->
+				show_list "Inventory" string_of_thing player.Game.Being.inv ui begin fun thing ->
+					do_cmds [Game.(Drop thing)]
+				end
+			| Quit -> do_cmds [Game.Quit]
+			| _ -> do_cmds []
 			)
 
-		let handle_input game key ui =
+		let handle_input game ui key do_cmds =
 			match game.Game.player with
-			| None -> []
+			| None -> ()
 			| Some player ->
-				handle_player_input game player key ui
+				handle_player_input game player ui key do_cmds
 	end

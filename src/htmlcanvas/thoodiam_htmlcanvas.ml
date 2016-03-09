@@ -54,6 +54,9 @@ let process_input key =
 		else if key = 85 then Some NE
 		else if key = 66 then Some SW
 		else if key = 78 then Some SE
+		else if key == 68 then Some Drop
+		else if key == 69 then Some Equip
+		else if key == 84 then Some Unequip
 		else begin
 			Printf.eprintf "unknown key %i\n" key;
 			None
@@ -105,8 +108,10 @@ let make_ui ui_styles extra_styles disp update_queue =
 
 let update_game disp ui game key =
 	Opt.iter begin fun key ->
-		Game.update game (Ui.handle_input game ui key);
-		Ui.update_game game ui
+		Ui.handle_input game ui key begin fun cmds ->
+			Game.update game cmds;
+			Ui.update_game game ui
+		end
 	end (Opt.flat_map process_input key);
 	Ui.draw ui disp game
 
