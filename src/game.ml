@@ -24,6 +24,8 @@ module Cell =
 module Message =
 	struct
 		type t =
+			| Melee_hit of (Being.t * Being.t * int)
+			| Melee_miss of (Being.t * Being.t)
 			| Pick_up of (Being.t * Thing.t)
 			| Drop of (Being.t * Thing.t)
 			| Equip of (Being.t * Equip_slot.t * Thing.t)
@@ -35,6 +37,7 @@ type dir = N | S | E | W | NE | NW | SE | SW
 
 type command =
 	| Move of dir
+	| Melee_attack of dir
 	| Pick_up of Thing.t
 	| Drop of Thing.t
 	| Equip of (Thing.t * Equip_slot.t)
@@ -49,6 +52,7 @@ module Action_queue = CCHeap.Make(
 
 type t =
 	{
+		rng : Rng.Source.t;
 		map : Cell.t Map.t;
 		mutable time : time;
 		mutable beings : Being.t list;
@@ -68,6 +72,8 @@ let dir_to_vec = function
 	| NW -> (-1, -1)
 	| SE -> (1, 1)
 	| SW -> (-1, 1)
+
+let round_to_int x = int_of_float (0.5 +. x)
 
 let remove_from_list xs x =
 	let found = ref false in
@@ -97,19 +103,20 @@ let place_being game being at =
 	being.Being.at <- at;
 	found
 
-let init_being game body at =
+let init_being game body_kind skills at =
+	let body = Thing.make body_kind in
 	let scale_stat base scale = 0.5 +. base *. 1.2**(float_of_int scale) in
-	let round_to_float x = int_of_float (0.5 +. x) in
 	let max_hp, can_carry =
 		match body.Thing.kind.Thing.Kind.bodyable with
 		| None -> 0, 0.
 		| Some b ->
 			Bodyable.(
-				round_to_float (scale_stat 10. b.con),
-				scale_stat 10. b.str
+				round_to_int (scale_stat 10. b.con),
+				scale_stat 20. b.str
 			) in
 	let being = Being.({
 			at = at;
+			skills = skills;
 			body = body;
 			inv = [];
 			equip = [];
@@ -134,9 +141,56 @@ let remove_being game being =
 	end;
 	found_thing && found_being
 
+let in_slot being es =
+	try Some (List.assoc es Game_data.(being.Being.equip))
+	with Not_found -> None
+
 let add_msg game at msg =
 	(* TODO: check if player can see location *)
 	game.messages <- msg::game.messages
+
+let handle_combat game attacker defender rng =
+	let open Being in
+	let open Bodyable in
+	let d1d20 = Dice.make 1 20 in
+	let attack_roll = attacker.skills.melee + (Dice.roll d1d20 rng) in
+	let evasion_roll = defender.skills.evasion + (Dice.roll d1d20 rng) in
+	if attack_roll > evasion_roll then begin
+		let a_str =
+			match attacker.body.Thing.kind.Thing.Kind.bodyable with
+			| None -> 0
+			| Some b -> b.str in
+		let a_wpn =
+			let wpn_slots = List.filter (fun es -> es.Equip_slot.is_melee) attacker.Being.body.Thing.kind.Thing.Kind.equip_slots in
+			let wpns = List.map (in_slot attacker) wpn_slots in
+			Rng.Uniform.list_elt wpns rng in
+		(* TODO: handle unarmed combat and combat with non-meleeable things *)
+		Opt.iter begin fun a_wpn ->
+			Opt.iter begin fun a_wpn_cbt ->
+				let d_amrs =
+					let amr_slots = List.filter (fun es -> es.Equip_slot.is_armour) attacker.Being.body.Thing.kind.Thing.Kind.equip_slots in
+					List.filter_map (in_slot attacker) amr_slots in
+				let a_extra_dice = (attack_roll - evasion_roll) / (7 + round_to_int a_wpn.Thing.kind.Thing.Kind.weight) in
+				let damage_roll = Dice.roll Combat.(Dice.(make (a_wpn_cbt.damage.num + a_extra_dice) (a_wpn_cbt.damage.sides + max (round_to_int a_wpn.Thing.kind.Thing.Kind.weight) a_str))) rng in
+			ignore (a_str, a_wpn, d_amrs);
+				let protection_roll =
+					List.fold_left begin fun r a ->
+						r + match a.Thing.kind.Thing.Kind.armour with
+							| Some a -> Dice.roll a.Combat.protection rng
+							| None -> 0
+					end 0 d_amrs in
+				let hp = max 0 (damage_roll - protection_roll) in
+				add_msg game attacker.Being.at (Message.Melee_hit (attacker, defender, hp));
+				defender.hp <- defender.hp - hp;
+				if defender.hp <= 0 then begin
+					add_msg game defender.Being.at (Message.Die defender);
+					ignore (remove_being game defender)
+				end
+			end a_wpn.Thing.kind.Thing.Kind.melee
+		end a_wpn
+	end else begin
+		add_msg game attacker.Being.at (Message.Melee_miss (attacker, defender))
+	end
 
 let update_vision game player =
 	let set_visible p =
@@ -162,8 +216,9 @@ let update_vision game player =
 		Fov.compute blocks_sight set_visible player.Being.at bodyable.Bodyable.vision
 	end player.Being.body.Thing.kind.Thing.Kind.bodyable
 
-let init map fov_radius player_body player_at configure =
+let init map fov_radius configure rng =
 	let game = {
+			rng = rng;
 			map = map;
 			time = 0.;
 			player = None;
@@ -174,13 +229,14 @@ let init map fov_radius player_body player_at configure =
 			messages = [];
 		} in
 	configure game;
-	let player = init_being game player_body player_at in
-	game.player <- Some player;
-	update_vision game player;
 	game
 
+let set_player game being =
+	game.player <- Some being;
+	update_vision game being
+
 let handle_command game being cmd =
-	match cmd with
+	begin match cmd with
 	| Quit -> begin
 			add_msg game being.Being.at (Message.Die being);
 			ignore (remove_being game being)
@@ -189,9 +245,16 @@ let handle_command game being cmd =
 			let p1 = Vec.(being.Being.at + dir_to_vec dir) in
 			if (Map.is_valid game.map p1)
 				&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
-				ignore (place_being game being p1);
-				update_vision game being
+				ignore (place_being game being p1)
 			end
+		end
+	| Melee_attack dir -> begin
+			let p1 = Vec.(being.Being.at + dir_to_vec dir) in
+			List.iter begin fun being1 ->
+				if being1.Being.at = p1 then begin
+					handle_combat game being being1 game.rng
+				end
+			end game.beings
 		end
 	| Pick_up thing -> begin
 			let new_weight = being.Being.inv_weight +. thing.Thing.kind.Thing.Kind.weight in
@@ -231,6 +294,8 @@ let handle_command game being cmd =
 				being.Being.inv <- thing :: being.Being.inv
 			with Not_found -> ()
 		end
+	end;
+	Opt.iter (update_vision game) game.player
 
 let time_for_action being cmd =
 	let base_time = 1. in

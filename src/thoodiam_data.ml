@@ -16,12 +16,14 @@ module Equip_slots =
 	struct
 		open Equip_slot
 
-		let weapon = make
+		let melee_weapon = make
 			~name:"weapon"
+			~is_melee:true
 			()
 
 		let armour = make
 			~name:"armour"
+			~is_armour:true
 			()
 	end
 
@@ -232,7 +234,7 @@ module Thing_kinds =
 				~name:"human"
 				~weight:100.
 				~visual_priority:true
-				~equip_slots:Equip_slots.[weapon; armour]
+				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:10
 						~str:5
@@ -247,7 +249,7 @@ module Thing_kinds =
 				~name:"goblin"
 				~weight:70.
 				~visual_priority:true
-				~equip_slots:Equip_slots.[weapon; armour]
+				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:8
 						~str:2
@@ -262,7 +264,7 @@ module Thing_kinds =
 				~name:"orc"
 				~weight:100.
 				~visual_priority:true
-				~equip_slots:Equip_slots.[weapon; armour]
+				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:6
 						~str:3

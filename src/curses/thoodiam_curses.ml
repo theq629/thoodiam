@@ -97,7 +97,7 @@ let do_popup disp extra_styles parent_win ui (f : Disp.Text_view.t -> Ui.Key.t o
 
 let make_ui ui_styles extra_styles disp =
 	let root = Disp.root disp in
-	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (13, 13) in
+	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (15, 15) in
 	let status_win, map_win = Disp.Window.split disp rest_win Disp.Bottom (3, 3) in
 	let ui = Ui.make
 			~panel:(Disp.Text_view.make disp panel_win)
@@ -111,8 +111,8 @@ let make_ui ui_styles extra_styles disp =
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.status_bg ui.Ui.status;
 	ui
 
-let run map_seed things_seed =
-	let game = Thoodiam.init map_seed things_seed in
+let run map_seed things_seed game_seed =
+	let game = Thoodiam.init map_seed things_seed game_seed in
 	Disp.with_display begin fun disp ->
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui ui_styles extra_styles disp in
@@ -132,10 +132,13 @@ let _ =
 	let time = int_of_float (Unix.time ()) in
 	let map_seed = ref time in
 	let things_seed = ref time in
+	let game_seed = ref time in
 	Args.(parse [
 			"-map-seed", Set_int map_seed,
 				"map generation seed";
 			"-things-seed", Set_int things_seed,
 				"thing generation seed";
+			"-game-seed", Set_int map_seed,
+				"game chances seed";
 		] []);
-	run !map_seed !things_seed
+	run !map_seed !things_seed !game_seed

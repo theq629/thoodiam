@@ -76,13 +76,17 @@ module Equip_slot =
 		type t =
 			{
 				name : string;
+				is_melee : bool;
+				is_armour : bool;
 			}
 
 		let make
 			~name
+			?(is_melee=false)
+			?(is_armour=false)
 			()
 			=
-			{ name }
+			{ name; is_melee; is_armour }
 	end
 
 module Thing =
@@ -142,9 +146,16 @@ module Terrain =
 
 module Being =
 	struct
+		type skills =
+			{
+				melee : int;
+				evasion : int;
+			}
+
 		type t =
 			{
 				body : Thing.t;
+				skills : skills;
 				mutable at : Map.Location.t;
 				mutable inv : Thing.t list;
 				mutable equip : (Equip_slot.t * Thing.t) list;

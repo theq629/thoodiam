@@ -162,10 +162,12 @@ module Make =
 			let being b = Game_data.Being.(Game_data.Thing.((b.body.kind.Kind.name))) in
 			Game.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
+			| Melee_hit (a, d, hp) -> p "The %s hits the %s for %i damage." (being a) (being d) hp
+			| Melee_miss (a, d) -> p "The %s misses the %s." (being a) (being d)
 			| Drop (b, t) -> p "The %s drops up the %s." (being b) (thing t)
 			| Equip (b, _, t) -> p "The %s equips up the %s." (being b) (thing t)
 			| Unequip (b, _, t) -> p "The %s unequips up the %s." (being b) (thing t)
-			| Die b -> p "the %s dies" (being b)
+			| Die b -> p "The %s dies." (being b)
 			))
 
 		let string_of_ui_message =
@@ -179,7 +181,10 @@ module Make =
 			let rf x = string_of_int (int_of_float (0.5 +. x)) in
 			D.Text_view.clear view;
 			let y = ref 0 in
-			let draw_line () =
+			let draw_space () =
+				incr y in
+			let draw_line value =
+				D.Text_view.draw view ~style:styles.Styles.panel_label (1, !y) value;
 				incr y in
 			let draw_pair label value =
 				D.Text_view.draw view ~style:styles.Styles.panel_label (1, !y) label;
@@ -191,13 +196,13 @@ module Make =
 				D.Text_view.draw view ~style:styles.Styles.panel_text (8, !y) "/";
 				D.Text_view.draw view ~style:styles.Styles.panel_text (9 + 3 - String.length max_value, !y) max_value;
 				incr y in
-			Game_data.(
+			Game.(Game_data.(
 				Being.(
 					Opt.iter begin fun being ->
 						draw_triple "HP" (string_of_int being.hp) (string_of_int being.max_hp);
-					end game.Game.player
+					end game.player
 				);
-				draw_line ();
+				draw_space ();
 				Bodyable.(
 					Opt.iter begin fun player ->
 						Opt.iter begin fun body ->
@@ -205,15 +210,36 @@ module Make =
 							draw_pair "Dex" (string_of_int body.dex);
 							draw_pair "Con" (string_of_int body.con)
 						end player.Being.body.Thing.kind.Thing.Kind.bodyable
-					end game.Game.player
+					end game.player
 				);
-				draw_line ();
+				draw_space ();
 				Being.(
 					Opt.iter begin fun being ->
 						draw_triple "Inv" (rf being.inv_weight) (rf being.can_carry)
-					end game.Game.player
+					end game.player
+				);
+				draw_space ();
+				Thing.(
+					Opt.iter begin fun player ->
+						List.iter begin fun equip_slot ->
+							Opt.iter begin fun thing ->
+								if equip_slot.Equip_slot.is_melee then
+									Opt.iter begin fun c ->
+										draw_line (string_of_combat c)
+									end thing.kind.Kind.melee
+							end (in_slot player equip_slot)
+						end player.Being.body.kind.Kind.equip_slots;
+						List.iter begin fun equip_slot ->
+							Opt.iter begin fun thing ->
+								if equip_slot.Equip_slot.is_armour then
+									Opt.iter begin fun c ->
+										draw_line (string_of_combat c)
+									end thing.kind.Kind.armour
+							end (in_slot player equip_slot)
+						end player.Being.body.kind.Kind.equip_slots
+					end game.player
 				)
-			)
+			))
 
 		let wrap_string max_space_adjust len str =
 			let n = String.length str in
@@ -238,8 +264,9 @@ module Make =
 		let draw_status styles game_messages ui_messages view =
 			let module V = D.Text_view in
 			V.clear view;
+			(* TODO: we should probably get the messages reversed already *)
 			let msg_str = String.concat " " (
-					(List.map string_of_game_message game_messages)
+					(List.map string_of_game_message (List.rev game_messages))
 					@ (List.map string_of_ui_message ui_messages)
 				) in
 			(* TODO: handle scrolling if we totally run out of space *)
@@ -310,15 +337,21 @@ module Make =
 				end (List.filter (fun t -> t != player.Game_data.Being.body) things)
 
 		let handle_player_input game player ui key do_cmds =
+			let move_or_attack dir =
+				Game_data.(
+					let p1 = Vec.(player.Being.at + Game.dir_to_vec dir) in
+					if List.exists (fun b -> b.Being.at = p1) game.Game.beings then do_cmds [Game.(Melee_attack dir)]
+					else do_cmds [Game.(Move dir)]
+				) in
 			Key.(match key with
-			| N -> do_cmds [Game.(Move N)]
-			| S -> do_cmds [Game.(Move S)]
-			| E -> do_cmds [Game.(Move E)]
-			| W -> do_cmds [Game.(Move W)]
-			| NE -> do_cmds [Game.(Move NE)]
-			| NW -> do_cmds [Game.(Move NW)]
-			| SE -> do_cmds [Game.(Move SE)]
-			| SW -> do_cmds [Game.(Move SW)]
+			| N -> move_or_attack Game.N
+			| S -> move_or_attack Game.S
+			| E -> move_or_attack Game.E
+			| W -> move_or_attack Game.W
+			| NE -> move_or_attack Game.NE
+			| NW -> move_or_attack Game.NW
+			| SE -> move_or_attack Game.SE
+			| SW -> move_or_attack Game.SW
 			| Quit ->
 				do_cmds [Game.Quit]
 			| Inventory ->
@@ -326,22 +359,19 @@ module Make =
 					()
 				end
 			| Equipment ->
-				let in_slot es =
-					try Some (List.assoc es Game_data.(player.Being.equip))
-					with Not_found -> None in
 				let string_of_slot es =
 					Printf.sprintf "%s: %s"
 						es.Game_data.Equip_slot.name
-						begin match (in_slot es) with
-							| Some t -> string_of_thing t
+						begin match (Game.in_slot player es) with
+							| Some t -> string_of_thing_inv t
 							| None -> ""
 						end in
 				show_list "Equipment" string_of_slot Game_data.(player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
-					match (in_slot equip_slot) with
+					match (Game.in_slot player equip_slot) with
 					| Some _ ->
 						do_cmds [Game.(Unequip equip_slot)]
 					| None ->
-						show_list (Printf.sprintf "Equip as %s" equip_slot.Game_data.Equip_slot.name) string_of_thing player.Game_data.Being.inv ui begin fun thing ->
+						show_list (Printf.sprintf "Equip as %s" equip_slot.Game_data.Equip_slot.name) string_of_thing_inv player.Game_data.Being.inv ui begin fun thing ->
 							do_cmds [Game.(Equip (thing, equip_slot))]
 						end
 				end

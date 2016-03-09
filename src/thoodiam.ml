@@ -13,29 +13,49 @@ let choose_init_pos map is_clear rng =
 		else run (radius + 1) in
 	run 1
 
-let make_stuff game rng num is_clear =
-	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer; leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|]) in
+let for_clear_points ?max_tries map is_clear num rng f =
+	let max_tries =
+		match max_tries with
+		| Some n -> n
+		| None -> num * 10 in
 	let rand_point rng =
-		let dimx, dimy = Game.Map.dim game.Game.map in
+		let dimx, dimy = Game.Map.dim map in
 		Rng.Uniform.int 0 dimx rng, Rng.Uniform.int 0 dimy rng in
-	let max_tries = num * 10 in
 	let rec run t n =
 		if n <= 0 || t > max_tries then ()
 		else
-			let kind = Rng.Uniform.array_elt kinds rng in
-			let thing = Game_data.Thing.make kind in
 			let p = rand_point rng in
-			if is_clear game.Game.map p then begin
-				Game.add_thing game p thing;
+			if is_clear map p then begin
+				f p;
 				run (t + 1) (n + 1)
 			end else
 				run (t + 1) n in
 	run 0 num
 
-let init map_seed things_seed =
-	let map_dim = 100, 100 in
+let make_stuff game rng num is_clear =
+	let kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer; leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|]) in
+	for_clear_points game.Game.map is_clear num rng begin fun p ->
+		let kind = Rng.Uniform.array_elt kinds rng in
+		let thing = Game_data.Thing.make kind in
+		Game.add_thing game p thing
+	end
+
+let make_creatures game rng num is_clear =
+	let kinds = Thing_kinds.([|
+			goblin, Game_data.Being.({ melee = 8; evasion = 6 });
+			orc, Game_data.Being.({ melee = 6; evasion = 8 })
+		|]) in
+	for_clear_points game.Game.map is_clear num rng begin fun p ->
+		let kind, skills = Rng.Uniform.array_elt kinds rng in
+		Game.init_being game kind  skills p
+	end
+
+let init map_seed things_seed game_seed =
+	let map_dimx, map_dimy as map_dim = 100, 100 in
+	let map_area = map_dimx * map_dimy in
 	let map_rng = Random.State.make [| map_seed |] in
 	let things_rng = Random.State.make [| things_seed |] in
+	let game_rng = Random.State.make [| game_seed |] in
 	let raw_map = Mapgen.Cellular.gen
 		~fix:(fun m p -> if Game.Map.is_boundary m p then Some Mapgen.Wall else None)
 		map_dim
@@ -47,9 +67,20 @@ let init map_seed things_seed =
 				| Mapgen.Wall -> Terrains.wall in
 			Game.Cell.make terrain
 		end in
-	let player = Game_data.Thing.make Thing_kinds.human in
 	let is_clear map p =
-		not (Game.Map.get map p).Game.Cell.terrain.Game_data.Terrain.blocking in
-	Game.init map 10 player (choose_init_pos map is_clear things_rng) begin fun game ->
-			make_stuff game things_rng 50 is_clear
-		end
+		Game.(Game_data.(
+			let cell = Map.get map p in
+			not cell.Cell.terrain.Terrain.blocking
+			&& not (List.exists (fun t -> t.Thing.kind.Thing.Kind.visual_priority) cell.Cell.things)
+		)) in
+	let player_skills =
+		Game_data.Being.({
+			melee = 10;
+			evasion = 7;
+		}) in
+	Game.init map 10 begin fun game ->
+			make_stuff game things_rng (map_area / 500) is_clear;
+			make_creatures game things_rng (map_area / 500) is_clear;
+			let player = Game.init_being game Thing_kinds.human player_skills (choose_init_pos map is_clear things_rng) in
+			Game.set_player game player
+		end game_rng
