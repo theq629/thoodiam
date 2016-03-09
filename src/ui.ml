@@ -42,7 +42,7 @@ module Make =
 
 		type message =
 			| Dead
-			| See_here of Game.Thing.t
+			| See_here of Game_data.Thing.t
 
 		type t =
 			{
@@ -59,7 +59,7 @@ module Make =
 			String.concat " " (List.filter_map (fun x -> x) opt_strs)
 
 		let string_of_combat comb =
-			let open Game in
+			let open Game_data in
 			let p = Printf.sprintf in
 			Combat.(join_opt_strings [
 					if not (Dice.is_zero comb.damage) then
@@ -77,7 +77,7 @@ module Make =
 				])
 
 		let string_of_thing thing =
-			let open Game in
+			let open Game_data in
 			Thing.(Kind.(
 				let k = thing.kind in
 				join_opt_strings [
@@ -153,7 +153,7 @@ module Make =
 		let string_of_game_message =
 			let p = Printf.sprintf in
 			let thing = string_of_thing in
-			let being b = Game.Being.(Game.Thing.((b.body.kind.Kind.name))) in
+			let being b = Game_data.Being.(Game_data.Thing.((b.body.kind.Kind.name))) in
 			Game.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
 			| Drop (b, t) -> p "The %s drops up the %s." (being b) (thing t)
@@ -249,7 +249,7 @@ module Make =
 			draw_panel ui.styles ui.panel;
 			draw_status ui.styles game.Game.messages ui.messages ui.status;
 			begin match game.Game.player with
-			| Some p -> draw_map ui.styles ui.map game p.Game.Being.at
+			| Some p -> draw_map ui.styles ui.map game p.Game_data.Being.at
 			| None -> ()
 			end;
 			D.Text_view.refresh ui.panel;
@@ -262,11 +262,11 @@ module Make =
 			| None ->
 				ui.messages <- Dead::ui.messages
 			| Some player ->
-				let at = player.Game.Being.at in
+				let at = player.Game_data.Being.at in
 				let things = Game.((Map.get game.map at).Cell.things) in
 				List.iter begin fun t ->
 					ui.messages <- (See_here t) :: ui.messages
-				end (List.filter (fun t -> t != player.Game.Being.body) things)
+				end (List.filter (fun t -> t != player.Game_data.Being.body) things)
 
 		let handle_player_input game player ui key do_cmds =
 			Key.(match key with
@@ -281,37 +281,37 @@ module Make =
 			| Quit ->
 				do_cmds [Game.Quit]
 			| Inventory ->
-				show_list "Inventory" string_of_thing player.Game.Being.inv ~select:false ui begin fun _ ->
+				show_list "Inventory" string_of_thing player.Game_data.Being.inv ~select:false ui begin fun _ ->
 					()
 				end
 			| Equipment ->
 				let in_slot es =
-					try Some (List.assoc es Game.(player.Being.equip))
+					try Some (List.assoc es Game_data.(player.Being.equip))
 					with Not_found -> None in
 				let string_of_slot es =
 					Printf.sprintf "%s: %s"
-						es.Game.Equip_slot.name
+						es.Game_data.Equip_slot.name
 						begin match (in_slot es) with
 							| Some t -> string_of_thing t
 							| None -> ""
 						end in
-				show_list "Equipment" string_of_slot Game.(player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
+				show_list "Equipment" string_of_slot Game_data.(player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
 					match (in_slot equip_slot) with
 					| Some _ ->
 						do_cmds [Game.(Unequip equip_slot)]
 					| None ->
-						show_list (Printf.sprintf "Equip as %s" equip_slot.Game.Equip_slot.name) string_of_thing player.Game.Being.inv ui begin fun thing ->
+						show_list (Printf.sprintf "Equip as %s" equip_slot.Game_data.Equip_slot.name) string_of_thing player.Game_data.Being.inv ui begin fun thing ->
 							do_cmds [Game.(Equip (thing, equip_slot))]
 						end
 				end
 			| Drop ->
-				show_list "Drop" string_of_thing player.Game.Being.inv ~multiple:true ui begin fun thing ->
+				show_list "Drop" string_of_thing player.Game_data.Being.inv ~multiple:true ui begin fun thing ->
 					do_cmds [Game.(Drop thing)]
 				end
 			| Pick_up ->
-				let at = player.Game.Being.at in
+				let at = player.Game_data.Being.at in
 				let things = Game.((Map.get game.map at).Cell.things) in
-				begin match List.filter (fun t -> t != player.Game.Being.body) things with
+				begin match List.filter (fun t -> t != player.Game_data.Being.body) things with
 				| [] -> ()
 				| [t] -> do_cmds [Game.(Pick_up t)]
 				| ts ->
