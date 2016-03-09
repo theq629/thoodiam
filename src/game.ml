@@ -1,7 +1,10 @@
+open Std
 module Vec = Vectors.TwoD
 module Map = Tilemap.Square
 module Fov = Fov_adammil
 open Game_data
+
+type time = float
 
 module Cell =
 	struct
@@ -38,9 +41,18 @@ type command =
 	| Unequip of Equip_slot.t
 	| Quit
 
+module Action_queue = CCHeap.Make(
+	struct
+		type t = (time * Being.t * command)
+		let leq (t1, _, _) (t2, _, _) = t1 < t2
+	end)
+
 type t =
 	{
 		map : Cell.t Map.t;
+		mutable time : time;
+		mutable beings : Being.t list;
+		mutable action_queue : Action_queue.t;
 		mutable player : Being.t option;
 		player_seen : tile option Map.t;
 		player_fov : bool Map.t;
@@ -79,18 +91,11 @@ let remove_thing game p thing =
 	cell.Cell.things <- things1;
 	found
 
-let remove_being game being =
-	remove_thing game being.Being.at being.Being.body
-
 let place_being game being at =
 	let found = remove_thing game being.Being.at being.Being.body in
 	add_thing game at being.Being.body;
 	being.Being.at <- at;
 	found
-
-let add_msg game at msg =
-	(* TODO: check if player can see location *)
-	game.messages <- msg::game.messages
 
 let init_being ?(vison_radius=10) game body at =
 	let being = Being.({
@@ -101,7 +106,24 @@ let init_being ?(vison_radius=10) game body at =
 			equip = [];
 		}) in
 	ignore (place_being game being being.Being.at);
+	game.beings <- being::game.beings;
 	being
+
+let remove_being game being =
+	let found_thing = remove_thing game being.Being.at being.Being.body in
+	let found_being, beings1 = remove_from_list game.beings being in
+	game.beings <- beings1;
+	begin match game.player with
+	| None -> ()
+	| Some b when b == being ->
+		game.player <- None
+	| _ -> ()
+	end;
+	found_thing && found_being
+
+let add_msg game at msg =
+	(* TODO: check if player can see location *)
+	game.messages <- msg::game.messages
 
 let update_vision game player =
 	let set_visible p =
@@ -128,7 +150,10 @@ let update_vision game player =
 let init map fov_radius player_body player_at configure =
 	let game = {
 			map = map;
+			time = 0.;
 			player = None;
+			beings = [];
+			action_queue = Action_queue.empty;
 			player_seen = Map.map map (fun _ v -> None);
 			player_fov = Map.map map (fun _ _ -> false);
 			messages = [];
@@ -139,59 +164,79 @@ let init map fov_radius player_body player_at configure =
 	update_vision game player;
 	game
 
-let update_player game player cmd =
+let handle_command game being cmd =
 	match cmd with
 	| Quit -> begin
-			add_msg game player.Being.at (Message.Die player);
-			ignore (remove_being game player);
-			game.player <- None
+			add_msg game being.Being.at (Message.Die being);
+			ignore (remove_being game being)
 		end
 	| Move dir -> begin
-			let p1 = Vec.(player.Being.at + dir_to_vec dir) in
+			let p1 = Vec.(being.Being.at + dir_to_vec dir) in
 			if (Map.is_valid game.map p1)
 				&& not (Map.get game.map p1).Cell.terrain.Terrain.blocking then begin
-				ignore (place_being game player p1);
-				update_vision game player
+				ignore (place_being game being p1);
+				update_vision game being
 			end
 		end
 	| Pick_up thing -> begin
-			let found = remove_thing game player.Being.at thing in
+			let found = remove_thing game being.Being.at thing in
 			if found then begin
-				add_msg game player.Being.at (Message.Pick_up (player, thing));
-				player.Being.inv <- thing::player.Being.inv
+				add_msg game being.Being.at (Message.Pick_up (being, thing));
+				being.Being.inv <- thing::being.Being.inv
 			end
 		end
 	| Drop thing -> begin
-			let found, inv1 = remove_from_list player.Being.inv thing in
+			let found, inv1 = remove_from_list being.Being.inv thing in
 			if found then begin
-				add_msg game player.Being.at (Message.Drop (player, thing));
-				player.Being.inv <- inv1;
-				add_thing game player.Being.at thing
+				add_msg game being.Being.at (Message.Drop (being, thing));
+				being.Being.inv <- inv1;
+				add_thing game being.Being.at thing
 			end
 		end
 	| Equip (thing, equip_slot) -> begin
-			if List.mem equip_slot player.Being.body.Thing.kind.Thing.Kind.equip_slots && not (List.mem_assoc equip_slot player.Being.equip) then begin
-				let found, inv1 = remove_from_list player.Being.inv thing in
+			if List.mem equip_slot being.Being.body.Thing.kind.Thing.Kind.equip_slots && not (List.mem_assoc equip_slot being.Being.equip) then begin
+				let found, inv1 = remove_from_list being.Being.inv thing in
 				if found then begin
-					add_msg game player.Being.at (Message.Equip (player, equip_slot, thing));
-					player.Being.inv <- inv1;
-					player.Being.equip <- (equip_slot, thing)::player.Being.equip
+					add_msg game being.Being.at (Message.Equip (being, equip_slot, thing));
+					being.Being.inv <- inv1;
+					being.Being.equip <- (equip_slot, thing)::being.Being.equip
 				end
 			end
 		end
 	| Unequip equip_slot -> begin
 			try
-				let thing = List.assoc equip_slot player.Being.equip in
-				add_msg game player.Being.at (Message.Unequip (player, equip_slot, thing));
-				player.Being.equip <- List.remove_assoc equip_slot player.Being.equip;
-				player.Being.inv <- thing :: player.Being.inv
+				let thing = List.assoc equip_slot being.Being.equip in
+				add_msg game being.Being.at (Message.Unequip (being, equip_slot, thing));
+				being.Being.equip <- List.remove_assoc equip_slot being.Being.equip;
+				being.Being.inv <- thing :: being.Being.inv
 			with Not_found -> ()
 		end
+
+let time_for_action being cmd =
+	let base_time = 1. in
+	let diag_time = sqrt (base_time**2. +. base_time**2.) in
+	match cmd with
+	| Move dir ->
+		begin match dir with
+		| NW | NE | SW | SE -> diag_time
+		| _ -> base_time
+		end
+	| _ -> base_time
 
 let update game cmds =
 	game.messages <- [];
 	begin match game.player with
-	| Some p ->
-		List.iter (fun c -> update_player game p c) cmds
 	| None -> ()
-	end
+	| Some being ->
+		List.iter begin fun cmd ->
+			let need_time = time_for_action being cmd in
+			game.action_queue <- Action_queue.add game.action_queue (game.time +. need_time, being, cmd)
+		end cmds
+	end;
+	while not (Action_queue.is_empty game.action_queue) do
+		let queue1, (time, being, action) = Action_queue.take_exn game.action_queue in
+		game.time <- time;
+		game.action_queue <- queue1;
+		handle_command game being action;
+		Printf.eprintf "game time %f\n" game.time
+	done
