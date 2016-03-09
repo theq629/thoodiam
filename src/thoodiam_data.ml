@@ -35,7 +35,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"dagger"
-				~weight:2.
+				~weight:0.5
 				~melee:Combat.(make
 						~accuracy:0
 						~damage:(Dice.make 1 5)
@@ -46,7 +46,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"short sword"
-				~weight:5.
+				~weight:2.
 				~melee:Combat.(make
 						~accuracy:0
 						~damage:(Dice.make 0 7)
@@ -58,7 +58,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"longsword"
-				~weight:10.
+				~weight:3.
 				~melee:Combat.(make
 						~accuracy:0
 						~damage:(Dice.make 2 5)
@@ -70,7 +70,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"bastard sword"
-				~weight:15.
+				~weight:4.
 				~melee:Combat.(make
 						~accuracy:(-1)
 						~damage:(Dice.make 3 3)
@@ -82,7 +82,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"greatsword"
-				~weight:20.
+				~weight:5.
 				~melee:Combat.(make
 						~accuracy:(-1)
 						~damage:(Dice.make 3 5)
@@ -94,7 +94,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"spear"
-				~weight:15.
+				~weight:2.
 				~melee:Combat.(make
 						~accuracy:(-1)
 						~damage:(Dice.make 1 9)
@@ -106,7 +106,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"great spear"
-				~weight:15.
+				~weight:3.
 				~melee:Combat.(make
 						~accuracy:(-1)
 						~damage:(Dice.make 1 13)
@@ -118,7 +118,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"glaive"
-				~weight:20.
+				~weight:4.
 				~melee:Combat.(make
 						~accuracy:(-2)
 						~damage:(Dice.make 2 9)
@@ -130,7 +130,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"battle axe"
-				~weight:10.
+				~weight:4.
 				~melee:Combat.(make
 						~accuracy:(-3)
 						~damage:(Dice.make 3 4)
@@ -142,7 +142,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"battle axe"
-				~weight:15.
+				~weight:5.
 				~melee:Combat.(make
 						~accuracy:(-4)
 						~damage:(Dice.make 4 4)
@@ -154,7 +154,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"quarterstaff"
-				~weight:3.
+				~weight:1.
 				~melee:Combat.(make
 						~accuracy:0
 						~damage:(Dice.make 2 3)
@@ -166,7 +166,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"war hammer"
-				~weight:10.
+				~weight:5.
 				~melee:Combat.(make
 						~accuracy:(-2)
 						~damage:(Dice.make 4 1)
@@ -174,30 +174,30 @@ module Thing_kinds =
 					())
 				()
 
+		let robe =
+			make
+				~tile:'['
+				~name:"robe"
+				~weight:1.
+				~armour:Combat.(make ())
+				()
+
 		let leather_armour =
 			make
 				~tile:'['
 				~name:"leather armour"
-				~weight:15.
+				~weight:3.
 				~armour:Combat.(make
 						~evasion:(-1)
 						~protection:(Dice.make 1 4)
 					())
 				()
 
-		let robe =
-			make
-				~tile:'['
-				~name:"robe"
-				~weight:2.
-				~armour:Combat.(make ())
-				()
-
 		let studded_leather_armour =
 			make
 				~tile:'['
 				~name:"studded leather armour"
-				~weight:20.
+				~weight:5.
 				~armour:Combat.(make
 						~evasion:(-2)
 						~protection:(Dice.make 1 6)
@@ -208,7 +208,7 @@ module Thing_kinds =
 			make
 				~tile:'['
 				~name:"mail corslet"
-				~weight:40.
+				~weight:10.
 				~armour:Combat.(make
 						~accuracy:(-1)
 						~evasion:(-3)
@@ -220,7 +220,7 @@ module Thing_kinds =
 			make
 				~tile:'['
 				~name:"mail hauberk"
-				~weight:40.
+				~weight:15.
 				~armour:Combat.(make
 						~accuracy:(-2)
 						~evasion:(-4)
