@@ -50,6 +50,20 @@ module Combat =
 			{ accuracy; damage; evasion; protection }
 	end
 
+module Equip_slot =
+	struct
+		type t =
+			{
+				name : string;
+			}
+
+		let make
+			~name
+			()
+			=
+			{ name }
+	end
+
 module Thing =
 	struct
 		module Kind =
@@ -62,6 +76,7 @@ module Thing =
 						melee : Combat.t option;
 						armour : Combat.t option;
 						visual_priority : bool;
+						equip_slots : Equip_slot.t list;
 					}
 
 				let make
@@ -71,9 +86,10 @@ module Thing =
 					?melee
 					?armour
 					?(visual_priority=false)
+					?(equip_slots=[])
 					()
 					=
-					{ tile; name; weight; melee; armour; visual_priority }
+					{ tile; name; weight; melee; armour; visual_priority; equip_slots }
 			end
 
 		type t =
@@ -103,15 +119,13 @@ module Terrain =
 
 module Being =
 	struct
-		type equip_slot = Weapon | Armour
-
 		type t =
 			{
 				vison_radius : int;
 				body : Thing.t;
 				mutable at : Map.Location.t;
 				mutable inv : Thing.t list;
-				mutable equip : (equip_slot * Thing.t) list;
+				mutable equip : (Equip_slot.t * Thing.t) list;
 			}
 	end
 
@@ -135,8 +149,8 @@ module Message =
 		type t =
 			| Pick_up of (Being.t * Thing.t)
 			| Drop of (Being.t * Thing.t)
-			| Equip of (Being.t * Being.equip_slot * Thing.t)
-			| Unequip of (Being.t * Being.equip_slot * Thing.t)
+			| Equip of (Being.t * Equip_slot.t * Thing.t)
+			| Unequip of (Being.t * Equip_slot.t * Thing.t)
 			| Die of Being.t
 	end
 
@@ -146,8 +160,8 @@ type command =
 	| Move of dir
 	| Pick_up of Thing.t
 	| Drop of Thing.t
-	| Equip of (Thing.t * Being.equip_slot)
-	| Unequip of Being.equip_slot
+	| Equip of (Thing.t * Equip_slot.t)
+	| Unequip of Equip_slot.t
 	| Quit
 
 type t =
@@ -282,7 +296,7 @@ let update_player game player cmd =
 			end
 		end
 	| Equip (thing, equip_slot) -> begin
-			if not (List.mem_assoc equip_slot player.Being.equip) then begin
+			if List.mem equip_slot player.Being.body.Thing.kind.Thing.Kind.equip_slots && not (List.mem_assoc equip_slot player.Being.equip) then begin
 				let found, inv1 = remove_from_list player.Being.inv thing in
 				if found then begin
 					add_msg game player.Being.at (Message.Equip (player, equip_slot, thing));
@@ -295,7 +309,8 @@ let update_player game player cmd =
 			try
 				let thing = List.assoc equip_slot player.Being.equip in
 				add_msg game player.Being.at (Message.Unequip (player, equip_slot, thing));
-				add_thing game player.Being.at thing
+				player.Being.equip <- List.remove_assoc equip_slot player.Being.equip;
+				player.Being.inv <- thing :: player.Being.inv
 			with Not_found -> ()
 		end
 

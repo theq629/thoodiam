@@ -12,6 +12,20 @@ module Terrains =
 			()
 	end
 
+module Equip_slots =
+	struct
+		open Game
+		open Equip_slot
+
+		let weapon = make
+			~name:"weapon"
+			()
+
+		let armour = make
+			~name:"armour"
+			()
+	end
+
 module Thing_kinds =
 	struct
 		open Game
@@ -220,6 +234,7 @@ module Thing_kinds =
 				~name:"human"
 				~weight:100.
 				~visual_priority:true
+				~equip_slots:Equip_slots.[weapon; armour]
 				()
 	end
 

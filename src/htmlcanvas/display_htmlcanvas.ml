@@ -174,7 +174,14 @@ let input_loop ui f =
 	let on_key event =
 		begin match ui.key_handler with
 		| None -> ()
-		| Some f -> f event##keyCode
+		| Some f ->
+			let key_code = event##keyCode in
+			let offset =
+				if key_code >= 65 && key_code <= 90 then begin
+					if (Js.to_bool event##shiftKey) then 0
+					else 32
+				end else 0 in
+			f (key_code + offset)
 		end;
 		Js._true in
 	ui.key_handler <- Some f;

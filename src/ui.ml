@@ -12,8 +12,10 @@ module Make =
 						panel_text : style;
 						status_text : style;
 						popup_text : style;
+						popup_text_sel : style;
 						popup_label : style;
 						popup_key : style;
+						popup_key_sel : style;
 						map_fov : style;
 						map_seen : style;
 					}
@@ -25,9 +27,8 @@ module Make =
 					| N | S | E | W | NE | NW | SE | SW
 					| Pick_up
 					| Inventory
+					| Equipment
 					| Drop
-					| Equip
-					| Unequip
 					| Page_up
 					| Page_down
 					| End
@@ -86,21 +87,42 @@ module Make =
 					]
 			))
 
-		let show_list title to_string list ui f =
+		let show_list title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
 			let start_i = ref 0 in
+			let sel = ref [] in
 			let len = List.length list in
 			let max_id_len = Array.fold_left (fun m k -> max m (String.length k)) 0 ui.list_ids in
 			ui.do_popup ui begin fun view key ->
 				let page_size = min (Array.length ui.list_ids) (let _, dimy = D.Text_view.dim view in dimy - 3) in
 				let continue = ref true in
+				let go () =
+					List.iter (fun i -> f (List.nth list i)) !sel;
+					sel := [] in
+				let finish () =
+					go ();
+					continue := false in
 				Key.(match key with
 				| None -> ()
 				| Some key ->
 					begin match key with
-					| End -> continue := false
-					| Page_up -> start_i := max 0 (!start_i - page_size)
-					| Page_down -> start_i := let i = !start_i + page_size in if i >= len then !start_i else i
-					| List_item i -> f (List.nth list i)
+					| End ->
+						finish ()
+					| Page_up ->
+						start_i := max 0 (!start_i - page_size)
+					| Page_down ->
+						start_i := let i = !start_i + page_size in if i >= len then !start_i else i
+					| List_item i ->
+						if select then begin
+							let i1 = !start_i + i in
+							if i1 >= 0 && i1 < len then begin
+								if List.mem i1 !sel then sel := List.filter (fun x -> x != i1) !sel
+								else sel := i1::!sel
+							end;
+							if repeat then
+								go ()
+							else if not multiple then
+								finish ()
+						end
 					| _ -> ()
 					end
 				);
@@ -114,8 +136,12 @@ module Make =
 				List.iteri begin fun i x ->
 					if i >= !start_i && i < min len (!start_i + page_size) then begin
 						let y = 1 + offset_y + i - !start_i in
-						D.Text_view.draw view ~style:ui.styles.Styles.popup_key (1, y) ui.list_ids.(i - !start_i);
-						D.Text_view.draw view ~style:ui.styles.Styles.popup_text (max_id_len + 2, y) (to_string x)
+						let key_i = i - !start_i in
+						let key_style, text_style =
+							if List.mem key_i !sel then ui.styles.Styles.popup_key_sel, ui.styles.Styles.popup_text_sel
+							else ui.styles.Styles.popup_key, ui.styles.Styles.popup_text in
+						D.Text_view.draw view ~style:key_style (1, y) ui.list_ids.(key_i);
+						D.Text_view.draw view ~style:text_style (max_id_len + 2, y) (to_string x)
 					end;
 				end list;
 				if !start_i + page_size < len then
@@ -252,22 +278,47 @@ module Make =
 			| NW -> do_cmds [Game.(Move NW)]
 			| SE -> do_cmds [Game.(Move SE)]
 			| SW -> do_cmds [Game.(Move SW)]
+			| Quit ->
+				do_cmds [Game.Quit]
+			| Inventory ->
+				show_list "Inventory" string_of_thing player.Game.Being.inv ~select:false ui begin fun _ ->
+					()
+				end
+			| Equipment ->
+				let in_slot es =
+					try Some (List.assoc es Game.(player.Being.equip))
+					with Not_found -> None in
+				let string_of_slot es =
+					Printf.sprintf "%s: %s"
+						es.Game.Equip_slot.name
+						begin match (in_slot es) with
+							| Some t -> string_of_thing t
+							| None -> ""
+						end in
+				show_list "Equipment" string_of_slot Game.(player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
+					match (in_slot equip_slot) with
+					| Some _ ->
+						do_cmds [Game.(Unequip equip_slot)]
+					| None ->
+						show_list (Printf.sprintf "Equip as %s" equip_slot.Game.Equip_slot.name) string_of_thing player.Game.Being.inv ui begin fun thing ->
+							do_cmds [Game.(Equip (thing, equip_slot))]
+						end
+				end
+			| Drop ->
+				show_list "Drop" string_of_thing player.Game.Being.inv ~multiple:true ui begin fun thing ->
+					do_cmds [Game.(Drop thing)]
+				end
 			| Pick_up ->
 				let at = player.Game.Being.at in
 				let things = Game.((Map.get game.map at).Cell.things) in
 				begin match List.filter (fun t -> t != player.Game.Being.body) things with
 				| [] -> ()
-				| t::_ -> do_cmds [Game.(Pick_up t)]
+				| [t] -> do_cmds [Game.(Pick_up t)]
+				| ts ->
+					show_list "Get" string_of_thing ts ~multiple:true ui begin fun thing ->
+						do_cmds [Game.(Pick_up thing)]
+					end
 				end
-			| Inventory ->
-				show_list "Inventory" string_of_thing player.Game.Being.inv ui begin fun _ ->
-					()
-				end
-			| Drop ->
-				show_list "Inventory" string_of_thing player.Game.Being.inv ui begin fun thing ->
-					do_cmds [Game.(Drop thing)]
-				end
-			| Quit -> do_cmds [Game.Quit]
 			| _ -> do_cmds []
 			)
 

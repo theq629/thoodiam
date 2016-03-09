@@ -27,6 +27,8 @@ let make_styles disp =
 			popup_label = make disp ~fg:(c "yellow");
 			popup_key = make disp ~fg:(c "yellow");
 			popup_text = make disp ~fg:(c "white");
+			popup_key_sel = make disp ~fg:(c "yellow");
+			popup_text_sel = make disp ~fg:(c "yellow");
 			map_fov = make disp ~fg:(c "yellow");
 			map_seen = make disp ~fg:(c "white");
 		})) in
@@ -44,19 +46,18 @@ let make_styles disp =
 let process_input key =
 	Ui.Key.(
 		if key = 81 then Some Quit
-		else if key = 71 then Some Pick_up
-		else if key = 73 then Some Inventory
-		else if key = 38 || key = 75 then Some N
-		else if key = 40 || key = 74 then Some S
-		else if key = 37 || key = 72 then Some W
-		else if key = 39 || key = 76 then Some E
-		else if key = 89 then Some NW
-		else if key = 85 then Some NE
-		else if key = 66 then Some SW
-		else if key = 78 then Some SE
-		else if key == 68 then Some Drop
-		else if key == 69 then Some Equip
-		else if key == 84 then Some Unequip
+		else if key = 38 || key = 75 || key = 107 then Some N
+		else if key = 40 || key = 74 || key = 106 then Some S
+		else if key = 37 || key = 72 || key = 104 then Some W
+		else if key = 39 || key = 76 || key = 108 then Some E
+		else if key = 89 || key = 121 then Some NW
+		else if key = 85 || key = 117 then Some NE
+		else if key = 66 || key = 98 then Some SW
+		else if key = 78 || key = 110 then Some SE
+		else if key = 103 then Some Pick_up
+		else if key == 100 then Some Drop
+		else if key = 105 then Some Inventory
+		else if key == 101 then Some Equipment
 		else begin
 			Printf.eprintf "unknown key %i\n" key;
 			None
@@ -64,13 +65,22 @@ let process_input key =
 	)
 
 let process_popup_input key =
+	let module Ch_map = Map.Make(struct type t = int;; let compare = compare;; end) in
+	let list_id_set, _ =
+		Array.fold_left begin fun (m, i) str ->
+			Ch_map.add (int_of_char str.[0]) i m, i + 1
+		end (Ch_map.empty, 0) Ui.letter_list_ids in
 	Ui.Key.(
 		if key = 27 || key = 13 then Some End
 		else if key = 32 || key = 221 then Some Page_down
 		else if key = 219 then Some Page_up
 		else begin
-			Printf.eprintf "unknown key %i\n" key;
-			None
+			match Ch_map.get key list_id_set with
+			| Some i ->
+				Some (List_item i)
+			| None ->
+				Printf.eprintf "unknown key %i\n" key;
+				None
 		end
 	)
 
@@ -87,7 +97,10 @@ let make_ui ui_styles extra_styles disp update_queue =
 			else begin
 				update_queue :=
 					begin match !update_queue with
-					| u::us -> us 
+					| u::u1::us ->
+						u1 None;
+						u1::us 
+					| [u] -> []
 					| [] -> []
 					end;
 				Disp.Window.remove win

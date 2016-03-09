@@ -1,3 +1,4 @@
+open Std
 module Disp = Display_curses
 module Ui = Ui.Make(Disp)
 
@@ -28,6 +29,8 @@ let make_styles disp =
 			popup_label = make disp ~colours:yellow_on_black;
 			popup_key = make disp ~colours:yellow_on_black;
 			popup_text = make disp ~colours:white_on_black;
+			popup_key_sel = make disp ~colours:yellow_on_black;
+			popup_text_sel = make disp ~colours:yellow_on_black;
 			map_fov = make disp ~colours:yellow_on_black;
 			map_seen = make disp ~colours:white_on_black;
 		})) in
@@ -45,6 +48,8 @@ let process_game_input ch =
 		if ch == int_of_char 'Q' then Some Quit
 		else if ch == int_of_char 'g' then Some Pick_up
 		else if ch == int_of_char 'i' then Some Inventory
+		else if ch == int_of_char 'e' then Some Equipment
+		else if ch == int_of_char 'd' then Some Drop
 		else if ch == Curses.Key.up || ch == int_of_char 'k' then Some N
 		else if ch == Curses.Key.down || ch == int_of_char 'j' then Some S
 		else if ch == Curses.Key.left || ch == int_of_char 'h' then Some W
@@ -57,14 +62,23 @@ let process_game_input ch =
 	)
 
 let process_popup_input ch =
+	let module Ch_map = Map.Make(struct type t = int;; let compare = compare;; end) in
+	let list_id_set, _ =
+		Array.fold_left begin fun (m, i) str ->
+			Ch_map.add (int_of_char str.[0]) i m, i + 1
+		end (Ch_map.empty, 0) Ui.letter_list_ids in
 	Ui.Key.(
 		if ch == 27 || ch == 10 then Some End
 		else if ch == int_of_char '[' || ch == int_of_char ' ' then Some Page_down
 		else if ch == int_of_char ']' then Some Page_up
-		else if ch == int_of_char 'd' then Some Drop
-		else if ch == int_of_char 'e' then Some Equip
-		else if ch == int_of_char 't' then Some Unequip
-		else None
+		else begin
+			match Ch_map.get ch list_id_set with
+			| Some i ->
+				Some (List_item i)
+			| None ->
+				Printf.eprintf "unknown key %i\n" ch;
+				None
+		end
 	)
 
 let do_popup disp extra_styles parent_win ui (f : Disp.Text_view.t -> Ui.Key.t option -> bool) =
