@@ -188,9 +188,6 @@ module Style =
 
 		let apply_attrs cwin style =
 			Curses.wattrset cwin style.attrs
-
-		let apply_background style cwin ch =
-			ignore (Curses.wbkgd cwin (style.attrs lor ch))
 	end
 
 module Base_view =
@@ -200,11 +197,13 @@ module Base_view =
 		type t =
 			{
 				win : Window.t;
+				mutable bg : Style.t;
 			}
 
-		let make _ win =
+		let make disp win =
 			{
 				win = win;
+				bg = Style.default disp;
 			}
 
 		let dim view =
@@ -212,14 +211,25 @@ module Base_view =
 			dimx, dimy
 
 		let clear view =
-			Curses.werase view.win.cwin
+			Curses.werase view.win.cwin;
+			let dimx, dimy = Window.dim view.win in
+			Style.apply_attrs view.win.cwin view.bg;
+			for x = 0 to dimx - 1 do
+				for y = 0 to dimy - 1 do
+					Curses.mvwaddch view.win.cwin y x (int_of_char ' ')
+				done
+			done
 
 		let refresh view =
 			ignore (Curses.wrefresh view.win.cwin)
 
-		let config ?bg_style ?(bg_char=' ') view =
+		let config ?bg_style ?bg_char view =
 			begin match bg_style with
-			| Some s -> Style.apply_background s view.win.cwin (int_of_char bg_char)
+			| Some s -> view.bg <- s
+			| None -> ()
+			end;
+			begin match bg_char with
+			| Some char -> ignore (Curses.wbkgd view.win.cwin (int_of_char char))
 			| None -> ()
 			end
 	end
