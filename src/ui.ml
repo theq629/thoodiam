@@ -64,9 +64,9 @@ module Make =
 			let p = Printf.sprintf in
 			Combat.(join_opt_strings [
 					if not (Dice.is_zero comb.damage) then
-						Some (p "[%i,%s]" comb.accuracy (Dice.to_string comb.damage))
+						Some (p "(%i,%s)" comb.accuracy (Dice.to_string comb.damage))
 					else if comb.accuracy != 0 then
-						Some (p "[%i]" comb.accuracy)
+						Some (p "(%i)" comb.accuracy)
 					else
 						None;
 					if not (Dice.is_zero comb.protection) then
