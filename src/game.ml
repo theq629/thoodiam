@@ -97,13 +97,26 @@ let place_being game being at =
 	being.Being.at <- at;
 	found
 
-let init_being ?(vison_radius=10) game body at =
+let init_being game body at =
+	let scale_stat base scale = 0.5 +. base *. 1.2**(float_of_int scale) in
+	let round_to_float x = int_of_float (0.5 +. x) in
+	let max_hp, can_carry =
+		match body.Thing.kind.Thing.Kind.bodyable with
+		| None -> 0, 0.
+		| Some b ->
+			Bodyable.(
+				round_to_float (scale_stat 10. b.con),
+				scale_stat 10. b.str
+			) in
 	let being = Being.({
-			vison_radius = vison_radius;
 			at = at;
 			body = body;
 			inv = [];
 			equip = [];
+			can_carry = can_carry;
+			inv_weight = 0.;
+			max_hp = max_hp;
+			hp = max_hp;
 		}) in
 	ignore (place_being game being being.Being.at);
 	game.beings <- being::game.beings;
@@ -144,8 +157,10 @@ let update_vision game player =
 		not (Map.is_valid game.map p)
 		|| (Map.get game.map p).Cell.terrain.Terrain.blocking in
 	Map.update game.player_fov (fun _ _ -> false);
-	set_visible player.Being.at;
-	Fov.compute blocks_sight set_visible player.Being.at player.Being.vison_radius
+	Opt.iter begin fun bodyable ->
+		set_visible player.Being.at;
+		Fov.compute blocks_sight set_visible player.Being.at bodyable.Bodyable.vision
+	end player.Being.body.Thing.kind.Thing.Kind.bodyable
 
 let init map fov_radius player_body player_at configure =
 	let game = {
@@ -179,10 +194,14 @@ let handle_command game being cmd =
 			end
 		end
 	| Pick_up thing -> begin
-			let found = remove_thing game being.Being.at thing in
-			if found then begin
-				add_msg game being.Being.at (Message.Pick_up (being, thing));
-				being.Being.inv <- thing::being.Being.inv
+			let new_weight = being.Being.inv_weight +. thing.Thing.kind.Thing.Kind.weight in
+			if new_weight <= being.Being.can_carry then begin
+				let found = remove_thing game being.Being.at thing in
+				if found then begin
+					add_msg game being.Being.at (Message.Pick_up (being, thing));
+					being.Being.inv <- thing::being.Being.inv;
+					being.Being.inv_weight <- being.Being.inv_weight +. thing.Thing.kind.Thing.Kind.weight
+				end
 			end
 		end
 	| Drop thing -> begin
@@ -190,7 +209,8 @@ let handle_command game being cmd =
 			if found then begin
 				add_msg game being.Being.at (Message.Drop (being, thing));
 				being.Being.inv <- inv1;
-				add_thing game being.Being.at thing
+				add_thing game being.Being.at thing;
+				being.Being.inv_weight <- being.Being.inv_weight -. thing.Thing.kind.Thing.Kind.weight
 			end
 		end
 	| Equip (thing, equip_slot) -> begin

@@ -22,6 +22,7 @@ let make_styles disp =
 	let c = Disp.Colour.of_string in
 	let ui_styles =
 		Ui.Styles.(Disp.Style.({
+			panel_label = make disp ~fg:(c "black");
 			panel_text = make disp ~fg:(c "black");
 			status_text = make disp ~fg:(c "black");
 			popup_label = make disp ~fg:(c "yellow");
@@ -86,7 +87,7 @@ let process_popup_input key =
 
 let make_ui ui_styles extra_styles disp update_queue =
 	let root = Disp.root disp in
-	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.1 in
+	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.15 in
 	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.9 in
 	let do_popup ui f =
 		let win = Disp.Window.make disp map_win (0, 0) (Disp.Window.dim map_win) in

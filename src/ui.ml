@@ -9,6 +9,7 @@ module Make =
 
 				type t =
 					{
+						panel_label : style;
 						panel_text : style;
 						status_text : style;
 						popup_text : style;
@@ -169,10 +170,45 @@ module Make =
 			| Dead -> "You are dead!"
 			| See_here t -> p "There is a %s here." (thing t)
 
-		let draw_panel styles view =
-			let module V = D.Text_view in
-			V.clear view;
-			V.draw view ~style:styles.Styles.panel_text (1, 0) "Info"
+		let draw_panel styles game view =
+			let rf x = string_of_int (int_of_float (0.5 +. x)) in
+			D.Text_view.clear view;
+			let y = ref 0 in
+			let draw_line () =
+				incr y in
+			let draw_pair label value =
+				D.Text_view.draw view ~style:styles.Styles.panel_label (1, !y) label;
+				D.Text_view.draw view ~style:styles.Styles.panel_text (5 + 3 - String.length value, !y) value;
+				incr y in
+			let draw_triple label value max_value =
+				D.Text_view.draw view ~style:styles.Styles.panel_label (1, !y) label;
+				D.Text_view.draw view ~style:styles.Styles.panel_text (5 + 3 - String.length value, !y) value;
+				D.Text_view.draw view ~style:styles.Styles.panel_text (8, !y) "/";
+				D.Text_view.draw view ~style:styles.Styles.panel_text (9 + 3 - String.length max_value, !y) max_value;
+				incr y in
+			Game_data.(
+				Being.(
+					Opt.iter begin fun being ->
+						draw_triple "HP" (string_of_int being.hp) (string_of_int being.max_hp);
+					end game.Game.player
+				);
+				draw_line ();
+				Bodyable.(
+					Opt.iter begin fun player ->
+						Opt.iter begin fun body ->
+							draw_pair "Str" (string_of_int body.str);
+							draw_pair "Dex" (string_of_int body.dex);
+							draw_pair "Con" (string_of_int body.con)
+						end player.Being.body.Thing.kind.Thing.Kind.bodyable
+					end game.Game.player
+				);
+				draw_line ();
+				Being.(
+					Opt.iter begin fun being ->
+						draw_triple "Inv" (rf being.inv_weight) (rf being.can_carry)
+					end game.Game.player
+				)
+			)
 
 		let wrap_string max_space_adjust len str =
 			let n = String.length str in
@@ -246,7 +282,7 @@ module Make =
 			}
 
 		let draw ui disp game =
-			draw_panel ui.styles ui.panel;
+			draw_panel ui.styles game ui.panel;
 			draw_status ui.styles game.Game.messages ui.messages ui.status;
 			begin match game.Game.player with
 			| Some p -> draw_map ui.styles ui.map game p.Game_data.Being.at

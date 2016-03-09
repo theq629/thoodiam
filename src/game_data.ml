@@ -54,14 +54,14 @@ module Bodyable =
 	struct
 		type t =
 			{
-				vision : float;
+				vision : int;
 				str : int;
 				dex : int;
 				con : int;
 			}
 
 		let make
-			?(vision=10.)
+			?(vision=10)
 			?(str=0)
 			?(dex=0)
 			?(con=0)

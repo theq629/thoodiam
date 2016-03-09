@@ -233,7 +233,8 @@ module Thing_kinds =
 				~weight:100.
 				~visual_priority:true
 				~equip_slots:Equip_slots.[weapon; armour]
-				~body:Body.(make
+				~bodyable:Bodyable.(make
+						~vision:10
 						~str:5
 						~dex:5
 						~con:5
@@ -247,7 +248,8 @@ module Thing_kinds =
 				~weight:70.
 				~visual_priority:true
 				~equip_slots:Equip_slots.[weapon; armour]
-				~body:Body.(make
+				~bodyable:Bodyable.(make
+						~vision:8
 						~str:2
 						~dex:3
 						~con:2
@@ -261,7 +263,8 @@ module Thing_kinds =
 				~weight:100.
 				~visual_priority:true
 				~equip_slots:Equip_slots.[weapon; armour]
-				~body:Body.(make
+				~bodyable:Bodyable.(make
+						~vision:6
 						~str:3
 						~dex:2
 						~con:4

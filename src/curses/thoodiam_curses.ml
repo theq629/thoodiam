@@ -24,6 +24,7 @@ let make_styles disp =
 	let yellow_on_black = Cp.make disp cols.C.yellow cols.C.black in
 	let ui_styles =
 		Ui.Styles.(Disp.Style.({
+			panel_label = make disp ~colours:black_on_white;
 			panel_text = make disp ~colours:black_on_white;
 			status_text = make disp ~colours:black_on_white;
 			popup_label = make disp ~colours:yellow_on_black;
@@ -96,7 +97,7 @@ let do_popup disp extra_styles parent_win ui (f : Disp.Text_view.t -> Ui.Key.t o
 
 let make_ui ui_styles extra_styles disp =
 	let root = Disp.root disp in
-	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (10, 10) in
+	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (13, 13) in
 	let status_win, map_win = Disp.Window.split disp rest_win Disp.Bottom (3, 3) in
 	let ui = Ui.make
 			~panel:(Disp.Text_view.make disp panel_win)
