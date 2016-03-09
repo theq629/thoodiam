@@ -135,7 +135,7 @@ let _ =
 	Args.(parse [
 			"-map-seed", Set_int map_seed,
 				"map generation seed";
-			"-things-seed", Set_int map_seed,
+			"-things-seed", Set_int things_seed,
 				"thing generation seed";
 		] []);
 	run !map_seed !things_seed
