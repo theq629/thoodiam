@@ -165,3 +165,57 @@ module Being =
 				mutable hp : int;
 			}
 	end
+
+module Message =
+	struct
+		type t =
+			| Melee_hit of (Being.t * Being.t * int)
+			| Melee_miss of (Being.t * Being.t)
+			| Pick_up of (Being.t * Thing.t)
+			| Drop of (Being.t * Thing.t)
+			| Equip of (Being.t * Equip_slot.t * Thing.t)
+			| Unequip of (Being.t * Equip_slot.t * Thing.t)
+			| Die of Being.t
+	end
+
+module Direction =
+	struct
+		type t = N | S | E | W | NE | NW | SE | SW
+
+		let to_vec = function
+			| N -> (0, -1)
+			| S -> (0, 1)
+			| E -> (1, 0)
+			| W -> (-1, 0)
+			| NE -> (1, -1)
+			| NW -> (-1, -1)
+			| SE -> (1, 1)
+			| SW -> (-1, 1)
+
+		let of_vec = function
+			| (0, -1) -> Some N
+			| (0, 1) -> Some S
+			| (1, 0) -> Some E
+			| (-1, 0) -> Some W
+			| (1, -1) -> Some NE
+			| (-1, -1) -> Some NW
+			| (1, 1) -> Some SE
+			| (-1, 1) -> Some SW
+			| _ -> None
+	end
+
+module Action =
+	struct
+		type t =
+			| Move of Direction.t
+			| Melee_attack of Direction.t
+			| Pick_up of Thing.t
+			| Drop of Thing.t
+			| Equip of (Thing.t * Equip_slot.t)
+			| Unequip of Equip_slot.t
+			| Quit
+	end
+
+let in_slot being es =
+	try Some (List.assoc es (being.Being.equip))
+	with Not_found -> None

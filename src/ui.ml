@@ -1,4 +1,5 @@
 open Std
+open Game_data
 
 module Make =
 	functor (D : Display.I) ->
@@ -43,7 +44,7 @@ module Make =
 
 		type message =
 			| Dead
-			| See_here of Game_data.Thing.t
+			| See_here of Thing.t
 
 		type t =
 			{
@@ -61,7 +62,6 @@ module Make =
 			String.concat " " (List.filter_map (fun x -> x) opt_strs)
 
 		let string_of_combat comb =
-			let open Game_data in
 			let p = Printf.sprintf in
 			Combat.(join_opt_strings [
 					if not (Dice.is_zero comb.damage) then
@@ -79,7 +79,6 @@ module Make =
 				])
 
 		let string_of_thing thing =
-			let open Game_data in
 			Thing.(Kind.(
 				let k = thing.kind in
 				join_opt_strings [
@@ -90,7 +89,7 @@ module Make =
 			))
 
 		let string_of_thing_inv thing =
-			Game_data.Thing.(
+			Thing.(
 				Printf.sprintf "%s %0.2f" (string_of_thing thing) thing.kind.Kind.weight
 			)
 
@@ -160,7 +159,7 @@ module Make =
 		let string_of_game_message =
 			let p = Printf.sprintf in
 			let thing = string_of_thing in
-			let being b = Game_data.Being.(Game_data.Thing.((b.body.kind.Kind.name))) in
+			let being b = Being.(Thing.((b.body.kind.Kind.name))) in
 			Game.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
 			| Melee_hit (a, d, hp) -> p "The %s hits the %s for %i damage." (being a) (being d) hp
@@ -197,7 +196,7 @@ module Make =
 				D.Text_view.draw view ~style:styles.Styles.panel_text (8, !y) "/";
 				D.Text_view.draw view ~style:styles.Styles.panel_text (9 + 3 - String.length max_value, !y) max_value;
 				incr y in
-			Game.(Game_data.(
+			Game.(
 				Being.(
 					Opt.iter begin fun being ->
 						draw_triple "HP" (string_of_int being.hp) (string_of_int being.max_hp);
@@ -240,7 +239,7 @@ module Make =
 						end player.Being.body.kind.Kind.equip_slots
 					end game.player
 				)
-			))
+			)
 
 		let wrap_string max_space_adjust len str =
 			let n = String.length str in
@@ -282,21 +281,21 @@ module Make =
 		let draw_map styles view game centre =
 			let module V = D.Chars_view in
 			let dimx, dimy as dim = V.dim view in
-			let offset = Game.Vec.(centre - dim / 2) in
+			let offset = Vec.(centre - dim / 2) in
 			V.clear view;
 			for sx = 0 to dimx - 1 do
 				for sy = 0 to dimy - 1 do
 					let sp = sx, sy in
-					let wp = Game.Vec.(sp + offset) in
+					let wp = Vec.(sp + offset) in
 					let char =
-						if Game.(Game.Map.is_valid game.Game.player_seen wp) then begin
-							match Game.Map.get game.Game.player_seen wp with
+						if Game.(Map.is_valid game.player_info.Player_info.seen wp) then begin
+							match Game.(Map.get game.player_info.Player_info.seen wp) with
 							| Some t -> t
 							| None -> ' '
 						end else ' ' in
 					let style =
-						if Game.(Game.Map.is_valid game.Game.player_seen wp)
-							&& Game.Map.get game.Game.player_fov wp
+						if Game.(Map.is_valid game.player_info.Player_info.seen wp)
+							&& Game.(Map.get game.player_info.Player_info.fov wp)
 							then styles.Styles.map_fov
 						else styles.Styles.map_seen in
 					V.draw view ~style:style sp char
@@ -317,9 +316,9 @@ module Make =
 
 		let draw ui disp game =
 			draw_panel ui.styles game ui.panel;
-			draw_status ui.styles game.Game.messages ui.messages ui.status;
+			draw_status ui.styles game.Game.region.Region.messages ui.messages ui.status;
 			begin match game.Game.player with
-			| Some p -> draw_map ui.styles ui.map game p.Game_data.Being.at
+			| Some p -> draw_map ui.styles ui.map game p.Being.at
 			| None -> ()
 			end;
 			D.Text_view.refresh ui.panel;
@@ -332,65 +331,63 @@ module Make =
 			| None ->
 				ui.messages <- Dead::ui.messages
 			| Some player ->
-				let at = player.Game_data.Being.at in
-				let things = Game.((Map.get game.map at).Cell.things) in
+				let at = player.Being.at in
+				let things = Game.(Region.((Map.get game.region.map at).Cell.things)) in
 				List.iter begin fun t ->
 					ui.messages <- (See_here t) :: ui.messages
-				end (List.filter (fun t -> t != player.Game_data.Being.body) things)
+				end (List.filter (fun t -> t != player.Being.body) things)
 
 		let handle_player_input game player ui key do_cmds =
 			let move_or_attack dir =
-				Game_data.(
-					let p1 = Vec.(player.Being.at + Game.dir_to_vec dir) in
-					if List.exists (fun b -> b.Being.at = p1) game.Game.beings then do_cmds [Game.(Melee_attack dir)]
-					else do_cmds [Game.(Move dir)]
-				) in
+				let p1 = Vec.(player.Being.at + Direction.to_vec dir) in
+				if List.exists (fun b -> b.Being.at = p1) Game.(game.region.Region.beings) then do_cmds [Action.(Melee_attack dir)]
+				else do_cmds [Action.(Move dir)] in
 			Key.(match key with
-			| N -> move_or_attack Game.N
-			| S -> move_or_attack Game.S
-			| E -> move_or_attack Game.E
-			| W -> move_or_attack Game.W
-			| NE -> move_or_attack Game.NE
-			| NW -> move_or_attack Game.NW
-			| SE -> move_or_attack Game.SE
-			| SW -> move_or_attack Game.SW
+			| N -> move_or_attack Direction.N
+			| S -> move_or_attack Direction.S
+			| E -> move_or_attack Direction.E
+			| W -> move_or_attack Direction.W
+			| NE -> move_or_attack Direction.NE
+			| NW -> move_or_attack Direction.NW
+			| SE -> move_or_attack Direction.SE
+			| SW -> move_or_attack Direction.SW
 			| Quit ->
 				ui.user_quit <- true;
-				do_cmds [Game.Quit]
+				do_cmds [Action.Quit]
 			| Inventory ->
-				show_list "Inventory" string_of_thing_inv player.Game_data.Being.inv ~select:false ui begin fun _ ->
+				show_list "Inventory" string_of_thing_inv player.Being.inv ~select:false ui begin fun _ ->
 					()
 				end
 			| Equipment ->
 				let string_of_slot es =
 					Printf.sprintf "%s: %s"
-						es.Game_data.Equip_slot.name
-						begin match (Game.in_slot player es) with
+						es.Equip_slot.name
+						begin match (in_slot player es) with
 							| Some t -> string_of_thing_inv t
 							| None -> ""
 						end in
-				show_list "Equipment" string_of_slot Game_data.(player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
-					match (Game.in_slot player equip_slot) with
+				show_list "Equipment" string_of_slot (player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
+					match (in_slot player equip_slot) with
 					| Some _ ->
-						do_cmds [Game.(Unequip equip_slot)]
+						do_cmds [Action.(Unequip equip_slot)]
 					| None ->
-						show_list (Printf.sprintf "Equip as %s" equip_slot.Game_data.Equip_slot.name) string_of_thing_inv player.Game_data.Being.inv ui begin fun thing ->
-							do_cmds [Game.(Equip (thing, equip_slot))]
+						show_list (Printf.sprintf "Equip as %s" equip_slot.Equip_slot.name) string_of_thing_inv player.Being.inv ui begin fun thing ->
+							do_cmds [Action.(Equip (thing, equip_slot))]
 						end
 				end
 			| Drop ->
-				show_list "Drop" string_of_thing_inv player.Game_data.Being.inv ~multiple:true ui begin fun thing ->
-					do_cmds [Game.(Drop thing)]
+				show_list "Drop" string_of_thing_inv player.Being.inv ~multiple:true ui begin fun thing ->
+					do_cmds [Action.(Drop thing)]
 				end
 			| Pick_up ->
-				let at = player.Game_data.Being.at in
-				let things = Game.((Map.get game.map at).Cell.things) in
-				begin match List.filter (fun t -> t != player.Game_data.Being.body) things with
+				let at = player.Being.at in
+				let things = Game.(Region.(((Map.get game.region.map at).Cell.things))) in
+				begin match List.filter (fun t -> t != player.Being.body) things with
 				| [] -> ()
-				| [t] -> do_cmds [Game.(Pick_up t)]
+				| [t] -> do_cmds [Action.(Pick_up t)]
 				| ts ->
 					show_list "Get" string_of_thing_inv ts ~multiple:true ui begin fun thing ->
-						do_cmds [Game.(Pick_up thing)]
+						do_cmds [Action.(Pick_up thing)]
 					end
 				end
 			| _ -> do_cmds []
