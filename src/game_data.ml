@@ -163,6 +163,7 @@ module Being =
 				mutable inv_weight : float;
 				mutable max_hp : int;
 				mutable hp : int;
+				mutable stress : int;
 			}
 	end
 

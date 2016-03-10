@@ -188,18 +188,19 @@ module Make =
 				incr y in
 			let draw_pair label value =
 				D.Text_view.draw view ~style:styles.Styles.panel_label (1, !y) label;
-				D.Text_view.draw view ~style:styles.Styles.panel_text (5 + 3 - String.length value, !y) value;
+				D.Text_view.draw view ~style:styles.Styles.panel_text (8 + 3 - String.length value, !y) value;
 				incr y in
 			let draw_triple label value max_value =
 				D.Text_view.draw view ~style:styles.Styles.panel_label (1, !y) label;
-				D.Text_view.draw view ~style:styles.Styles.panel_text (5 + 3 - String.length value, !y) value;
-				D.Text_view.draw view ~style:styles.Styles.panel_text (8, !y) "/";
-				D.Text_view.draw view ~style:styles.Styles.panel_text (9 + 3 - String.length max_value, !y) max_value;
+				D.Text_view.draw view ~style:styles.Styles.panel_text (8 + 3 - String.length value, !y) value;
+				D.Text_view.draw view ~style:styles.Styles.panel_text (8 + 3, !y) "/";
+				D.Text_view.draw view ~style:styles.Styles.panel_text (8 + 3 + 3 + 1 - String.length max_value, !y) max_value;
 				incr y in
 			Game.(
 				Being.(
 					Opt.iter begin fun being ->
 						draw_triple "HP" (string_of_int being.hp) (string_of_int being.max_hp);
+						draw_pair "Stress" (string_of_int being.stress)
 					end game.player
 				);
 				draw_space ();

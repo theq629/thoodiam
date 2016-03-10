@@ -74,7 +74,7 @@ let update game player_cmds =
 	Region.update game.region game.rng;
 	Opt.iter begin fun player ->
 		if List.exists (fun b -> b == player) game.region.Region.beings then begin
-			update_vision game.region game.player_info player
+			update_vision game.region game.player_info player;
 		end else
 			game.player <- None
 	end game.player

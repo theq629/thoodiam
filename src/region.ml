@@ -96,6 +96,7 @@ let init_being region body_kind skills at =
 			inv_weight = 0.;
 			max_hp = max_hp;
 			hp = max_hp;
+			stress = 0;
 		}) in
 	ignore (place_being region being being.Being.at);
 	region.beings <- being::region.beings;
@@ -126,7 +127,9 @@ let handle_combat region attacker defender rng =
 			if defender.hp <= 0 then begin
 				add_msg region defender.Being.at (Message.Die defender);
 				ignore (remove_being region defender)
-			end
+			end;
+			attacker.stress <- 10;
+			defender.stress <- 10
 		)
 
 let handle_action region being action rng =
@@ -190,6 +193,13 @@ let handle_action region being action rng =
 		end
 	end
 
+let update_being being =
+	let open Being in
+	if being.stress > 0 then
+		being.stress <- being.stress - 1
+	else
+		being.hp <- min being.max_hp (being.hp + 1)
+
 let update region rng =
 	region.messages <- [];
 	(* TODO: actually enforce being action times instead of handling all actions *)
@@ -198,5 +208,6 @@ let update region rng =
 		region.time <- time;
 		region.action_queue <- queue1;
 		handle_action region being action rng;
+		List.iter update_being region.beings;
 		Printf.eprintf "region time %f\n" region.time
 	done
