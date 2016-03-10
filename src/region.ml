@@ -141,8 +141,10 @@ let handle_action region being action rng =
 		end
 	| Move dir -> begin
 			let p1 = Vec.(being.Being.at + Direction.to_vec dir) in
+			let cell = Map.get region.map p1 in
 			if (Map.is_valid region.map p1)
-				&& not (Map.get region.map p1).Cell.terrain.Terrain.blocking then begin
+				&& not cell.Cell.terrain.Terrain.blocking
+				&& not (List.exists (fun t -> t.Thing.kind.Thing.Kind.visual_priority) cell.Cell.things) then begin
 				ignore (place_being region being p1)
 			end
 		end
