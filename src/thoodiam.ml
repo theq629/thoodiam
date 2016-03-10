@@ -44,6 +44,14 @@ let make_stuff region rng num is_clear =
 		Region.add_thing region p thing
 	end
 
+let equip_being being rng =
+	let weapon = Thing.make (Rng.Uniform.array_elt rand_weapon_kinds rng) in
+	let armour = Thing.make (Rng.Uniform.array_elt rand_armour_kinds rng) in
+	being.Being.equip <- [
+			Equip_slots.melee_weapon, weapon;
+			Equip_slots.armour, armour
+		]
+
 let make_creatures region rng num is_clear =
 	let kinds = Thing_kinds.([|
 			goblin, Being.({ melee = 8; evasion = 6 });
@@ -52,12 +60,7 @@ let make_creatures region rng num is_clear =
 	for_clear_points region.Region.map is_clear num rng begin fun p ->
 		let kind, skills = Rng.Uniform.array_elt kinds rng in
 		let being = Region.init_being region kind skills p in
-		let weapon = Thing.make (Rng.Uniform.array_elt rand_weapon_kinds rng) in
-		let armour = Thing.make (Rng.Uniform.array_elt rand_armour_kinds rng) in
-		being.Being.equip <- [
-				Equip_slots.melee_weapon, weapon;
-				Equip_slots.armour, armour
-			]
+		equip_being being rng
 	end
 
 let is_clear map p =
@@ -98,5 +101,6 @@ let init map_seed things_seed game_seed =
 	let region = make_region map_rng things_rng in
 	let game = Game.make region game_rng in
 	let player = Region.init_being region Thing_kinds.human player_skills (choose_init_pos region.Region.map is_clear things_rng) in
+	equip_being player things_rng;
 	Game.set_player game player;
 	game
