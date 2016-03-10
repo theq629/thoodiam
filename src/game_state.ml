@@ -3,8 +3,8 @@ open Game_data
 module Message =
 	struct
 		type t =
-			| Melee_hit of (Being.t * Being.t * int * Combat_system.Result.t)
-			| Melee_miss of (Being.t * Being.t * Combat_system.Result.t)
+			| Melee_hit of (Being.t * Being.t * int * Combat.Result.t)
+			| Melee_miss of (Being.t * Being.t * Combat.Result.t)
 			| Pick_up of (Being.t * Thing.t)
 			| Drop of (Being.t * Thing.t)
 			| Equip of (Being.t * Equip_slot.t * Thing.t)

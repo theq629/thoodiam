@@ -13,6 +13,9 @@ module Dice =
 				sides : int;
 			}
 
+		let zero =
+			{ num = 0; sides = 0 }
+
 		let make num sides =
 			{ num; sides }
 
@@ -31,24 +34,48 @@ module Dice =
 			d.num == 0 || d.sides == 0
 	end
 
-module Combat =
+module In_combat =
 	struct
 		type t =
 			{
 				accuracy : int;
-				damage : Dice.t;
 				evasion : int;
-				protection : Dice.t;
 			}
 
 		let make
 			?(accuracy=0)
-			?(damage=Dice.make 0 0)
 			?(evasion=0)
-			?(protection=(Dice.make 0 0))
 			()
 			=
-			{ accuracy; damage; evasion; protection }
+			{ accuracy; evasion }
+	end
+
+module Weapon =
+	struct
+		type t =
+			{
+				damage : Dice.t;
+			}
+
+		let make
+			?(damage=Dice.zero)
+			()
+			=
+			{ damage }
+	end
+
+module Armour =
+	struct
+		type t =
+			{
+				protection : Dice.t;
+			}
+
+		let make
+			?(protection=Dice.zero)
+			()
+			=
+			{ protection }
 	end
 
 module Bodyable =
@@ -78,15 +105,17 @@ module Equip_slot =
 				name : string;
 				is_melee : bool;
 				is_armour : bool;
+				affects_combat : bool;
 			}
 
 		let make
 			~name
 			?(is_melee=false)
 			?(is_armour=false)
+			?(affects_combat=false)
 			()
 			=
-			{ name; is_melee; is_armour }
+			{ name; is_melee; is_armour; affects_combat }
 	end
 
 module Thing =
@@ -98,8 +127,9 @@ module Thing =
 						tile : tile;
 						name : string;
 						weight : float;
-						melee : Combat.t option;
-						armour : Combat.t option;
+						in_combat : In_combat.t option;
+						melee : Weapon.t option;
+						armour : Armour.t option;
 						visual_priority : bool;
 						equip_slots : Equip_slot.t list;
 						bodyable : Bodyable.t option;
@@ -109,6 +139,7 @@ module Thing =
 					~tile
 					~name
 					~weight
+					?in_combat
 					?melee
 					?armour
 					?(visual_priority=false)
@@ -116,7 +147,7 @@ module Thing =
 					?bodyable
 					()
 					=
-					{ tile; name; weight; melee; armour; visual_priority; equip_slots; bodyable }
+					{ tile; name; weight; in_combat; melee; armour; visual_priority; equip_slots; bodyable }
 			end
 
 		type t =
@@ -135,6 +166,9 @@ module Thing =
 
 		let weight thing =
 			thing.kind.Kind.weight
+
+		let in_combat thing =
+			thing.kind.Kind.in_combat
 
 		let melee thing =
 			thing.kind.Kind.melee

@@ -123,7 +123,7 @@ let remove_being region being =
 	found_thing && found_being
 
 let handle_combat region attacker defender rng =
-	let hit, result = Combat_system.melee_combat attacker defender rng in
+	let hit, result = Combat.melee_combat attacker defender rng in
 	match hit with
 	| None ->
 		add_msg region attacker.Being.at (Message.Melee_miss (attacker, defender, result))
