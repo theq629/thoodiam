@@ -47,6 +47,7 @@ let make_styles disp =
 let process_input key =
 	Ui.Key.(
 		if key = 81 then Some Quit
+		else if key = 190 then Some Wait
 		else if key = 38 || key = 75 || key = 107 then Some N
 		else if key = 40 || key = 74 || key = 106 then Some S
 		else if key = 37 || key = 72 || key = 104 then Some W

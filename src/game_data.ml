@@ -208,6 +208,7 @@ module Direction =
 module Action =
 	struct
 		type t =
+			| Wait
 			| Move of Direction.t
 			| Melee_attack of Direction.t
 			| Pick_up of Thing.t

@@ -35,6 +35,7 @@ module Make =
 					| Page_down
 					| End
 					| List_item of int
+					| Wait
 					| Quit
 			end
 
@@ -352,6 +353,8 @@ module Make =
 			| NW -> move_or_attack Direction.NW
 			| SE -> move_or_attack Direction.SE
 			| SW -> move_or_attack Direction.SW
+			| Wait ->
+				do_cmds [Action.Wait]
 			| Quit ->
 				ui.user_quit <- true;
 				do_cmds [Action.Quit]

@@ -139,6 +139,8 @@ let handle_action region being action rng =
 			add_msg region being.Being.at (Message.Die being);
 			ignore (remove_being region being)
 		end
+	| Wait ->
+		()
 	| Move dir -> begin
 			let p1 = Vec.(being.Being.at + Direction.to_vec dir) in
 			let cell = Map.get region.map p1 in

@@ -47,6 +47,7 @@ let make_styles disp =
 let process_game_input ch =
 	Ui.Key.(
 		if ch == int_of_char 'Q' then Some Quit
+		else if ch == int_of_char '.' then Some Wait
 		else if ch == int_of_char 'g' then Some Pick_up
 		else if ch == int_of_char 'i' then Some Inventory
 		else if ch == int_of_char 'e' then Some Equipment
