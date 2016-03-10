@@ -200,14 +200,21 @@ let update_being being =
 	else
 		being.hp <- min being.max_hp (being.hp + 1)
 
-let update region rng =
-	region.messages <- [];
-	(* TODO: actually enforce being action times instead of handling all actions *)
-	while not (Action_queue.is_empty region.action_queue) do
-		let queue1, (time, being, action) = Action_queue.take_exn region.action_queue in
-		region.time <- time;
+let rec update_to_time region rng time =
+	match Action_queue.find_min region.action_queue with
+	| None -> ()
+	| Some (t, _, _) when t > time -> ()
+	| Some (time, being, action) ->
+		let queue1, _ = Action_queue.take_exn region.action_queue in
 		region.action_queue <- queue1;
 		handle_action region being action rng;
+		update_to_time region rng time
+
+let update region rng =
+	region.messages <- [];
+	while not (Action_queue.is_empty region.action_queue) do
+		region.time <- region.time +. 1.;
+		Printf.eprintf "region time %f\n" region.time;
 		List.iter update_being region.beings;
-		Printf.eprintf "region time %f\n" region.time
+		update_to_time region rng region.time
 	done
