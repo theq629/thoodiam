@@ -248,7 +248,7 @@ module Make =
 			let n = String.length str in
 			let rec prev_space i j =
 				if j <= i then None
-				else if str.[j] == '_' then Some j
+				else if str.[j] == ' ' then Some j
 				else prev_space i (j - 1) in
 			let rec run i lines =
 				let j = min (i + len) (String.length str) in
