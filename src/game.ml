@@ -62,8 +62,7 @@ let update_vision region player_info player =
 
 let set_player game player =
 	update_vision game.region game.player_info player;
-	game.player <- Some player;
-	Region.clear_queue_for game.region player
+	game.player <- Some player
 
 let update game player_cmd =
 	let update_ai =
@@ -74,13 +73,10 @@ let update game player_cmd =
 		| Some player ->
 			fun being ->
 				if being == player then begin
-					Ai.update_player game.ai player;
-					None, false
+					player_cmd, false
 				end else
 					Ai.update_being game.ai being, true in
-	Opt.iter begin fun player ->
-		Region.queue_action game.region player player_cmd;
-	end game.player;
+	Opt.iter (Ai.update_player game.ai) game.player;
 	Region.update game.region update_ai game.rng;
 	Opt.iter begin fun player ->
 		if List.exists (fun b -> b == player) game.region.Region.beings then begin

@@ -66,5 +66,9 @@ let update_player ai player =
 
 let update_being ai being =
 	match try_attack ai being with
-	| Some a -> Some a
-	| None -> try_move ai being
+	| Some a -> a
+	| None ->
+		begin match try_move ai being with
+		| Some a -> a
+		| None -> Action.Wait
+		end

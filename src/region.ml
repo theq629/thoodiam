@@ -9,7 +9,7 @@ type time = float
 
 type event =
 	| Tick
-	| Being_action of (Being.t * Action.t)
+	| Being_action of Being.t
 
 module Event_queue = CCHeap.Make(
 	struct
@@ -32,7 +32,7 @@ module Cell =
 			}
 	end
 
-let time_for_action being actions =
+let time_for_action actions =
 	let base_time = 1. in
 	let diag_time = sqrt (base_time**2. +. base_time**2.) in
 	Action.(match actions with
@@ -59,10 +59,6 @@ let add_msg region at msg =
 
 let queue_event region time event =
 	region.event_queue <- Event_queue.add region.event_queue (time, event)
-
-let queue_action region being action =
-	let need_time = time_for_action being action in
-	queue_event region (region.time +. need_time) (Being_action (being, action))
 
 let init map configure =
 	let region = {
@@ -117,15 +113,8 @@ let init_being region body_kind skills at =
 		}) in
 	ignore (place_being region being being.Being.at);
 	region.beings <- being::region.beings;
-	queue_action region being Action.Wait;
+	queue_event region region.time (Being_action being);
 	being
-
-let clear_queue_for region being =
-	region.event_queue <- Event_queue.filter begin fun (_, e) ->
-			match e with
-			| Tick -> true
-			| Being_action (b, _) -> b != being
-		end region.event_queue
 
 let remove_being region being =
 	let found_thing = remove_thing region being.Being.at being.Being.body in
@@ -238,14 +227,10 @@ let update region being_ai rng =
 				| Tick ->
 					tick region;
 					true
-				| Being_action (being, action) ->
-					handle_action region being action rng;
+				| Being_action being ->
 					let action, continue = being_ai being in
-					begin match action with
-					| Some a -> queue_action region being a
-					| None when continue -> queue_action region being Action.Wait
-					| _ -> ()
-					end;
+					handle_action region being action rng;
+					queue_event region (region.time +. time_for_action action) (Being_action being);
 					continue
 				end in
 			if continue then run ()
