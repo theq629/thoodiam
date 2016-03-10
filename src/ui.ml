@@ -339,11 +339,11 @@ module Make =
 					ui.messages <- (See_here t) :: ui.messages
 				end (List.filter (fun t -> t != player.Being.body) things)
 
-		let handle_player_input game player ui key do_cmds =
+		let handle_player_input game player ui key do_cmd =
 			let move_or_attack dir =
 				let p1 = Vec.(player.Being.at + Direction.to_vec dir) in
-				if List.exists (fun b -> b.Being.at = p1) Game.(game.region.Region.beings) then do_cmds [Action.(Melee_attack dir)]
-				else do_cmds [Action.(Move dir)] in
+				if List.exists (fun b -> b.Being.at = p1) Game.(game.region.Region.beings) then do_cmd Action.(Melee_attack dir)
+				else do_cmd Action.(Move dir) in
 			Key.(match key with
 			| N -> move_or_attack Direction.N
 			| S -> move_or_attack Direction.S
@@ -354,10 +354,10 @@ module Make =
 			| SE -> move_or_attack Direction.SE
 			| SW -> move_or_attack Direction.SW
 			| Wait ->
-				do_cmds [Action.Wait]
+				do_cmd Action.Wait
 			| Quit ->
 				ui.user_quit <- true;
-				do_cmds [Action.Quit]
+				do_cmd Action.Quit
 			| Inventory ->
 				show_list "Inventory" string_of_thing_inv player.Being.inv ~select:false ui begin fun _ ->
 					()
@@ -373,31 +373,31 @@ module Make =
 				show_list "Equipment" string_of_slot (player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
 					match (in_slot player equip_slot) with
 					| Some _ ->
-						do_cmds [Action.(Unequip equip_slot)]
+						do_cmd Action.(Unequip equip_slot)
 					| None ->
 						show_list (Printf.sprintf "Equip as %s" equip_slot.Equip_slot.name) string_of_thing_inv player.Being.inv ui begin fun thing ->
-							do_cmds [Action.(Equip (thing, equip_slot))]
+							do_cmd Action.(Equip (thing, equip_slot))
 						end
 				end
 			| Drop ->
 				show_list "Drop" string_of_thing_inv player.Being.inv ~multiple:true ui begin fun thing ->
-					do_cmds [Action.(Drop thing)]
+					do_cmd Action.(Drop thing)
 				end
 			| Pick_up ->
 				let at = player.Being.at in
 				let things = Game.(Region.(((Map.get game.region.map at).Cell.things))) in
 				begin match List.filter (fun t -> t != player.Being.body) things with
 				| [] -> ()
-				| [t] -> do_cmds [Action.(Pick_up t)]
+				| [t] -> do_cmd Action.(Pick_up t)
 				| ts ->
 					show_list "Get" string_of_thing_inv ts ~multiple:true ui begin fun thing ->
-						do_cmds [Action.(Pick_up thing)]
+						do_cmd Action.(Pick_up thing)
 					end
 				end
-			| _ -> do_cmds []
+			| _ -> ()
 			)
 
-		let handle_input game ui key do_cmds =
+		let handle_input game ui key do_cmd =
 			match game.Game.player with
 			| None ->
 				begin match key with
@@ -405,5 +405,5 @@ module Make =
 				| _ -> ()
 				end
 			| Some player ->
-				handle_player_input game player ui key do_cmds
+				handle_player_input game player ui key do_cmd
 	end

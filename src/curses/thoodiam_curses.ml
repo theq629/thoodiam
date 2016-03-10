@@ -121,8 +121,8 @@ let run map_seed things_seed game_seed =
 			Ui.draw ui disp game;
 			match process_game_input (Disp.get_key disp) with
 			| Some k ->
-				Ui.handle_input game ui k begin fun cmds ->
-					Game.update game cmds;
+				Ui.handle_input game ui k begin fun cmd ->
+					Game.update game cmd
 				end;
 				Ui.update_game game ui
 			| None -> ()

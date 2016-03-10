@@ -123,8 +123,8 @@ let make_ui ui_styles extra_styles disp update_queue =
 
 let update_game disp ui game key =
 	Opt.iter begin fun key ->
-		Ui.handle_input game ui key begin fun cmds ->
-			Game.update game cmds;
+		Ui.handle_input game ui key begin fun cmd ->
+			Game.update game cmd
 		end;
 		Ui.update_game game ui
 	end (Opt.flat_map process_input key);

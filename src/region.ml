@@ -6,10 +6,14 @@ open Game_data
 
 type time = float
 
-module Action_queue = CCHeap.Make(
+type event =
+	| Tick
+	| Being_action of (Being.t * Action.t)
+
+module Event_queue = CCHeap.Make(
 	struct
-		type t = (time * Being.t * Action.t)
-		let leq (t1, _, _) (t2, _, _) = t1 < t2
+		type t = (time * event)
+		let leq (t1, _) (t2, _) = t1 < t2
 	end)
 
 module Cell =
@@ -44,19 +48,31 @@ type t =
 		map : Cell.t Map.t;
 		mutable time : time;
 		mutable beings : Being.t list;
-		mutable action_queue : Action_queue.t;
+		mutable event_queue : Event_queue.t;
 		mutable messages : Message.t list;
 	}
+
+let add_msg region at msg =
+	(* TODO: handle message locations so we can see if the player can see the event *)
+	region.messages <- msg::region.messages
+
+let queue_event region time event =
+	region.event_queue <- Event_queue.add region.event_queue (time, event)
+
+let queue_action region being action =
+	let need_time = time_for_action being action in
+	queue_event region (region.time +. need_time) (Being_action (being, action))
 
 let init map configure =
 	let region = {
 			map = map;
 			time = 0.;
 			beings = [];
-			action_queue = Action_queue.empty;
+			event_queue = Event_queue.empty;
 			messages = [];
 		} in
 	configure region;
+	queue_event region 0. Tick;
 	region
 
 let add_thing region p thing =
@@ -100,21 +116,21 @@ let init_being region body_kind skills at =
 		}) in
 	ignore (place_being region being being.Being.at);
 	region.beings <- being::region.beings;
+	queue_action region being Action.Wait;
 	being
+
+let clear_queue_for region being =
+	region.event_queue <- Event_queue.filter begin fun (_, e) ->
+			match e with
+			| Tick -> true
+			| Being_action (b, _) -> b != being
+		end region.event_queue
 
 let remove_being region being =
 	let found_thing = remove_thing region being.Being.at being.Being.body in
 	let found_being, beings1 = remove_from_list region.beings being in
 	region.beings <- beings1;
 	found_thing && found_being
-
-let add_msg region at msg =
-	(* TODO: handle message locations so we can see if the player can see the event *)
-	region.messages <- msg::region.messages
-
-let queue_action region being actions =
-	let need_time = time_for_action being actions in
-	region.action_queue <- Action_queue.add region.action_queue (region.time +. need_time, being, actions)
 
 let handle_combat region attacker defender rng =
 	match Combat_system.melee_combat region attacker defender rng with
@@ -197,28 +213,39 @@ let handle_action region being action rng =
 		end
 	end
 
-let update_being being =
-	let open Being in
-	if being.stress > 0 then
-		being.stress <- being.stress - 1
-	else
-		being.hp <- min being.max_hp (being.hp + 1)
+let tick region =
+	List.iter begin fun being ->
+		let open Being in
+		if being.stress > 0 then
+			being.stress <- being.stress - 1
+		else
+			being.hp <- min being.max_hp (being.hp + 1)
+	end region.beings;
+	queue_event region (region.time +. 1.) Tick
 
-let rec update_to_time region rng time =
-	match Action_queue.find_min region.action_queue with
-	| None -> ()
-	| Some (t, _, _) when t > time -> ()
-	| Some (time, being, action) ->
-		let queue1, _ = Action_queue.take_exn region.action_queue in
-		region.action_queue <- queue1;
-		handle_action region being action rng;
-		update_to_time region rng time
-
-let update region rng =
+let update region being_ai rng =
 	region.messages <- [];
-	while not (Action_queue.is_empty region.action_queue) do
-		region.time <- region.time +. 1.;
-		Printf.eprintf "region time %f\n" region.time;
-		List.iter update_being region.beings;
-		update_to_time region rng region.time
-	done
+	let rec run () =
+		match Event_queue.take region.event_queue with
+		| None -> ()
+		| Some (queue1, (time, event)) ->
+			region.time <- time;
+			region.event_queue <- queue1;
+			let continue =
+				begin match event with
+				| Tick ->
+					tick region;
+					true
+				| Being_action (being, action) ->
+					handle_action region being action rng;
+					let action, continue = being_ai being in
+					begin match action with
+					| Some a -> queue_action region being a
+					| None when continue -> queue_action region being Action.Wait
+					| _ -> ()
+					end;
+					continue
+				end in
+			if continue then run ()
+			else () in
+	run ()
