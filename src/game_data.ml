@@ -126,6 +126,30 @@ module Thing =
 
 		let make kind =
 			{ kind }
+
+		let tile thing =
+			thing.kind.Kind.tile
+
+		let name thing =
+			thing.kind.Kind.name
+
+		let weight thing =
+			thing.kind.Kind.weight
+
+		let melee thing =
+			thing.kind.Kind.melee
+
+		let armour thing =
+			thing.kind.Kind.armour
+
+		let visual_priority thing =
+			thing.kind.Kind.visual_priority
+
+		let equip_slots thing =
+			thing.kind.Kind.equip_slots
+
+		let bodyable thing =
+			thing.kind.Kind.bodyable
 	end
 
 module Terrain =
@@ -165,18 +189,9 @@ module Being =
 				mutable hp : int;
 				mutable stress : int;
 			}
-	end
 
-module Message =
-	struct
-		type t =
-			| Melee_hit of (Being.t * Being.t * int)
-			| Melee_miss of (Being.t * Being.t)
-			| Pick_up of (Being.t * Thing.t)
-			| Drop of (Being.t * Thing.t)
-			| Equip of (Being.t * Equip_slot.t * Thing.t)
-			| Unequip of (Being.t * Equip_slot.t * Thing.t)
-			| Die of Being.t
+		let body being =
+			being.body
 	end
 
 module Direction =
@@ -203,19 +218,6 @@ module Direction =
 			| (1, 1) -> Some SE
 			| (-1, 1) -> Some SW
 			| _ -> None
-	end
-
-module Action =
-	struct
-		type t =
-			| Wait
-			| Move of Direction.t
-			| Melee_attack of Direction.t
-			| Pick_up of Thing.t
-			| Drop of Thing.t
-			| Equip of (Thing.t * Equip_slot.t)
-			| Unequip of Equip_slot.t
-			| Quit
 	end
 
 let in_slot being es =

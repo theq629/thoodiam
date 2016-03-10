@@ -3,6 +3,7 @@ module Vec = Vectors.TwoD
 module Map = Tilemap.Square
 module Fov = Fov_adammil
 open Game_data
+open Game_state
 
 type time = float
 
@@ -92,10 +93,10 @@ let place_being region being at =
 	found
 
 let init_being region body_kind skills at =
-	let body = Thing.make body_kind in
+	let being_body = Thing.make body_kind in
 	let scale_stat base scale = 0.5 +. base *. 1.2**(float_of_int scale) in
 	let max_hp, can_carry =
-		match body.Thing.kind.Thing.Kind.bodyable with
+		match being_body.Thing.kind.Thing.Kind.bodyable with
 		| None -> 0, 0.
 		| Some b ->
 			Bodyable.(
@@ -105,7 +106,7 @@ let init_being region body_kind skills at =
 	let being = Being.({
 			at = at;
 			skills = skills;
-			body = body;
+			body = being_body;
 			inv = [];
 			equip = [];
 			can_carry = can_carry;
@@ -133,12 +134,13 @@ let remove_being region being =
 	found_thing && found_being
 
 let handle_combat region attacker defender rng =
-	match Combat_system.melee_combat region attacker defender rng with
+	let hit, result = Combat_system.melee_combat attacker defender rng in
+	match hit with
 	| None ->
-		add_msg region attacker.Being.at (Message.Melee_miss (attacker, defender))
+		add_msg region attacker.Being.at (Message.Melee_miss (attacker, defender, result))
 	| Some hp ->
 		Being.(
-			add_msg region attacker.Being.at (Message.Melee_hit (attacker, defender, hp));
+			add_msg region attacker.Being.at (Message.Melee_hit (attacker, defender, hp, result));
 			defender.hp <- defender.hp - hp;
 			if defender.hp <= 0 then begin
 				add_msg region defender.Being.at (Message.Die defender);

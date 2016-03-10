@@ -99,7 +99,7 @@ let do_popup disp extra_styles parent_win ui (f : Disp.Text_view.t -> Ui.Key.t o
 let make_ui ui_styles extra_styles disp =
 	let root = Disp.root disp in
 	let panel_win, rest_win = Disp.Window.split disp root Disp.Left (16, 16) in
-	let status_win, map_win = Disp.Window.split disp rest_win Disp.Bottom (3, 3) in
+	let status_win, map_win = Disp.Window.split disp rest_win Disp.Bottom (5, 5) in
 	let ui = Ui.make
 			~panel:(Disp.Text_view.make disp panel_win)
 			~status:(Disp.Text_view.make disp status_win)

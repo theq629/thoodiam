@@ -1,5 +1,6 @@
 open Std
 open Game_data
+open Game_state
 
 module Make =
 	functor (D : Display.I) ->
@@ -161,10 +162,10 @@ module Make =
 			let p = Printf.sprintf in
 			let thing = string_of_thing in
 			let being b = Being.(Thing.((b.body.kind.Kind.name))) in
-			Game.(Message.(function
+			Game_state.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
-			| Melee_hit (a, d, hp) -> p "The %s hits the %s for %i damage." (being a) (being d) hp
-			| Melee_miss (a, d) -> p "The %s misses the %s." (being a) (being d)
+			| Melee_hit (a, d, hp, r) -> p "The %s hits the %s for %i damage: %s." (being a) (being d) hp (Combat_system.Result.to_string r)
+			| Melee_miss (a, d, r) -> p "The %s misses the %s: %s." (being a) (being d) (Combat_system.Result.to_string r)
 			| Drop (b, t) -> p "The %s drops up the %s." (being b) (thing t)
 			| Equip (b, _, t) -> p "The %s equips up the %s." (being b) (thing t)
 			| Unequip (b, _, t) -> p "The %s unequips up the %s." (being b) (thing t)
@@ -264,20 +265,34 @@ module Make =
 			List.rev (run 0 [])
 
 		let draw_status styles game_messages ui_messages view =
+			let clip_list len list =
+				let rec run len_left =
+					function
+					| [] -> []
+					| xs when len_left <= len -> xs
+					| x::xs -> run (len_left - 1) xs in
+				run (List.length list) list in
 			let module V = D.Text_view in
 			V.clear view;
 			(* TODO: we should probably get the messages reversed already *)
-			let msg_str = String.concat " " (
-					(List.map string_of_game_message (List.rev game_messages))
-					@ (List.map string_of_ui_message ui_messages)
-				) in
 			(* TODO: handle scrolling if we totally run out of space *)
-			if String.length msg_str > 0 then begin
-				let dimx, _ = D.Text_view.dim view in
-				let lines = wrap_string (dimx / 10) (dimx - 2) msg_str in
-				List.iteri begin fun i line ->
-					V.draw view ~style:styles.Styles.status_text (1, i) line
-				end lines
+			let dimx, dimy = D.Text_view.dim view in
+			let msg_strs =
+					(List.map string_of_game_message (List.rev game_messages))
+					@ (List.map string_of_ui_message ui_messages) in
+			let lines = List.flat_map begin fun msg ->
+					wrap_string (dimx / 10) (dimx - 3) msg
+				end msg_strs in
+			let use_lines, have_more =
+				if List.length lines > dimy then clip_list dimy lines, true
+				else lines, false in
+			List.iteri begin fun i line ->
+				V.draw view ~style:styles.Styles.status_text (1, i) line
+			end use_lines;
+			if have_more then begin
+				for y = dimy - 1 downto dimy - 3 do
+					V.draw view ~style:styles.Styles.status_text (dimx - 1, y) "."
+				done
 			end
 
 		let draw_map styles view game centre =

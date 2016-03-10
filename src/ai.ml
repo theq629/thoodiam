@@ -1,5 +1,6 @@
 open Std
 open Game_data
+open Game_state
 module Map_search = Graph_search.Make(Tilemap.Location)
 
 type t =
