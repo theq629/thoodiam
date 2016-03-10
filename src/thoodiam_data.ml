@@ -237,9 +237,9 @@ module Thing_kinds =
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:10
-						~str:5
-						~dex:5
-						~con:5
+						~str:7
+						~dex:6
+						~con:10
 					())
 				()
 

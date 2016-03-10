@@ -73,10 +73,12 @@ let is_clear map p =
 let make_region map_rng things_rng =
 	let map_dimx, map_dimy as map_dim = 100, 100 in
 	let map_area = map_dimx * map_dimy in
-	let raw_map = Mapgen.Cellular.gen
-		~fix:(fun m p -> if Map.is_boundary m p then Some Mapgen.Wall else None)
-		map_dim
-		(fun () -> Random.State.float map_rng 1.) in
+	let raw_map = Mapgen.Cellular.(gen
+			~fix:(fun m p -> if Map.is_boundary m p then Some Mapgen.Wall else None)
+			~iters:[3, { born = (5, 8); survive = (5, 8) }]
+			map_dim
+			(fun () -> Random.State.float map_rng 1.)
+		) in
 	let map = Map.map raw_map begin fun _ value ->
 			let terrain =
 				match value with
@@ -85,8 +87,8 @@ let make_region map_rng things_rng =
 			Region.Cell.make terrain
 		end in
 	Region.init map begin fun region ->
-		make_stuff region things_rng (map_area / 500) is_clear;
-		make_creatures region things_rng (map_area / 500) is_clear
+		make_stuff region things_rng (map_area / 2000) is_clear;
+		make_creatures region things_rng (map_area / 2000) is_clear
 	end
 
 let init map_seed things_seed game_seed =
