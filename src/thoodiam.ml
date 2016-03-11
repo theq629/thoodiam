@@ -115,7 +115,7 @@ let is_clear map p =
 		&& not (List.exists Thing.blocks cell.Cell.things)
 	)
 
-let make_map ~max_tries dim num_stairs min_stair_dist rng =
+let make_map ~max_tries dim num_stairs min_stair_dist has_downs rng =
 	Retry.retry ~max_tries begin fun () ->
 		let raw_map = Mapgen.Cellular.(gen
 				~fix:(fun m p -> if Map.is_boundary m p then Some Mapgen.Wall else None)
@@ -134,10 +134,14 @@ let make_map ~max_tries dim num_stairs min_stair_dist rng =
 			List.iter begin fun p ->
 				(Map.get map p).Region.Cell.terrain <- Terrains.stairs_up
 			end ups;
-			List.iter begin fun p ->
-				(Map.get map p).Region.Cell.terrain <- Terrains.stairs_down
-			end downs;
-			(map, ups, downs)
+			let use_downs =
+				if has_downs then begin
+					List.iter begin fun p ->
+						(Map.get map p).Region.Cell.terrain <- Terrains.stairs_down
+					end downs;
+					downs
+				end else [] in
+			(map, ups, use_downs)
 		end (choose_stair_points ~max_tries:10 map is_clear num_stairs num_stairs min_stair_dist rng)
 	end
 
@@ -146,28 +150,31 @@ let make_region spec map_rng things_rng =
 	let map_area = map_dimx * map_dimy in
 	let num_stairs = map_area / 1000 in
 	let min_stair_dist = float_of_int (max map_dimx map_dimy) /. 4. in
-	let map, ups, _ =
-		match make_map ~max_tries:max_int map_dim num_stairs min_stair_dist map_rng with
+	let map, ups, downs =
+		match make_map ~max_tries:max_int map_dim num_stairs min_stair_dist spec.Level_spec.has_down_stairs map_rng with
 		| Retry.Ok m -> m
 		| _ -> assert false in
-	let player_at = Rng.Uniform.list_elt ups things_rng in
 	Level_spec.(
 		let all_things = Array.append spec.weapon_kinds spec.armour_kinds in
 		let region =
-			Region.init map begin fun region ->
+			Region.init map ups downs begin fun region ->
 				make_stuff region (map_area / 2000) is_clear all_things things_rng;
 				make_creatures region (map_area / 2000) is_clear spec.enemy_kinds spec.weapon_kinds spec.armour_kinds things_rng
 			end in
-		let player = make_player region player_at Thing_kinds.human spec.weapon_kinds spec.armour_kinds things_rng in
-		region, player
+		region
 	)
 
 let init map_seed things_seed game_seed =
 	let map_rng = Random.State.make [| map_seed |] in
 	let things_rng = Random.State.make [| things_seed |] in
 	let game_rng = Random.State.make [| game_seed |] in
-	let level_spec = level_specs.(0) in
-	let region, player = make_region level_spec map_rng things_rng in
-	let game = Game.make region game_rng in
-	Game.set_player game player;
+	let make_level level_i =
+		let spec = level_specs.(level_i) in
+		make_region spec map_rng things_rng in
+	let init_player level_i region player_at =
+		let spec = level_specs.(level_i) in
+		Level_spec.(
+			make_player region player_at Thing_kinds.human spec.weapon_kinds spec.armour_kinds things_rng
+		) in
+	let game = Game.make make_level init_player game_rng in
 	game

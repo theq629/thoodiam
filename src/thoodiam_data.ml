@@ -324,15 +324,17 @@ module Level_spec =
 				weapon_kinds : (float * Thing_kind.t) array;
 				armour_kinds : (float * Thing_kind.t) array;
 				enemy_kinds : (float * Thing_kind.t) array;
+				has_down_stairs : bool;
 			}
 
 		let make
 			?(weapon_kinds=[||])
 			?(armour_kinds=[||])
 			?(enemy_kinds=[||])
+			?(has_down_stairs=true)
 			()
 			=
-			{ weapon_kinds; armour_kinds; enemy_kinds }
+			{ weapon_kinds; armour_kinds; enemy_kinds; has_down_stairs }
 	end
 
 let level_specs =

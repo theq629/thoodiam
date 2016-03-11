@@ -18,24 +18,6 @@ module Player_info =
 			})
 	end
 
-type t =
-	{
-		rng : Rng.Source.t;
-		region : Region.t;
-		ai : Ai.t;
-		mutable player : Being.t option;
-		player_info : Player_info.t;
-	}
-
-let make region rng =
-	{
-		rng = rng;
-		region = region;
-		ai = Ai.make region;
-		player = None;
-		player_info = Player_info.make region;
-	}
-
 let update_vision region player_info player =
 	let open Region in
 	let open Player_info in
@@ -62,9 +44,69 @@ let update_vision region player_info player =
 		Fov.compute blocks_sight set_visible player.Being.at bodyable.Bodyable.vision
 	end Thing.(bodyable Being.(body player))
 
-let set_player game player =
-	update_vision game.region game.player_info player;
-	game.player <- Some player
+type t =
+	{
+		rng : Rng.Source.t;
+		make_level : int -> Region.t;
+		mutable on_level : int;
+		mutable levels : (int * Region.t) list;
+		mutable ai : Ai.t;
+		mutable region : Region.t;
+		mutable player : Being.t option;
+		mutable player_info : Player_info.t;
+	}
+
+let set_level game level_i =
+	let region =
+		try
+			let l = List.assoc level_i game.levels in
+			Printf.eprintf "using cached level\n";
+			l
+		with Not_found ->
+			Printf.eprintf "using new level\n";
+			let new_region = game.make_level level_i in
+			game.levels <- (level_i, new_region)::game.levels;
+			new_region in
+	Opt.iter begin fun player ->
+		assert (match region.Region.down_stairs with [] -> false | _ -> true);
+		assert (match region.Region.up_stairs with [] -> false | _ -> true);
+		let down_stairs_i =
+			match list_index player.Being.at region.Region.down_stairs with
+			| Some level_i -> level_i
+			| None -> Rng.Uniform.int 0 (List.length region.Region.down_stairs) game.rng in
+		let player_at =
+			let ds = region.Region.up_stairs in
+			List.nth ds (down_stairs_i mod List.length ds) in
+		ignore (Region.remove_being game.region player);
+		ignore (Region.place_being region player player_at)
+	end game.player;
+	game.region <- region;
+	game.on_level <- level_i;
+	game.ai <- Ai.make region;
+	game.player_info <- Player_info.make region;
+	Opt.iter begin fun player ->
+		update_vision game.region game.player_info player
+	end game.player
+
+let make make_level init_player rng =
+	let first_level_i = 0 in
+	let first_level = make_level first_level_i in
+	let player_at =
+		let us = first_level.Region.up_stairs in
+		Rng.Uniform.list_elt us rng in
+	let player = init_player first_level_i first_level player_at in
+	let player_info = Player_info.make first_level in
+	update_vision first_level player_info player;
+	{
+		rng = rng;
+		make_level = make_level;
+		on_level = first_level_i;
+		levels = [first_level_i, first_level];
+		region = first_level;
+		ai = Ai.make first_level;
+		player = Some player;
+		player_info = player_info;
+	}
 
 let update game player_cmd =
 	let update_ai =

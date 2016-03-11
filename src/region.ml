@@ -49,6 +49,8 @@ let time_for_action actions =
 type t =
 	{
 		map : Cell.t Map.t;
+		up_stairs : Map.Location.t list;
+		down_stairs : Map.Location.t list;
 		mutable time : time;
 		mutable beings : Being.t list;
 		mutable event_queue : Event_queue.t;
@@ -62,9 +64,11 @@ let add_msg region at msg =
 let queue_event region time event =
 	region.event_queue <- Event_queue.add region.event_queue (time, event)
 
-let init map configure =
+let init map up_stairs down_stairs configure =
 	let region = {
 			map = map;
+			up_stairs = up_stairs;
+			down_stairs = down_stairs;
 			time = 0.;
 			beings = [];
 			event_queue = Event_queue.empty;

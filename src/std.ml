@@ -14,3 +14,11 @@ let remove_from_list xs x =
 		end xs in
 	(* TODO: faster? *)
 	!found, xs1
+
+let rec list_index x =
+	let rec run i =
+		function
+		| [] -> None
+		| y::ys when y == x -> Some i
+		| _::ys -> run (i + 1) ys in
+	run 0
