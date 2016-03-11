@@ -155,7 +155,7 @@ let make_map ~max_tries dim num_stairs min_stair_dist has_downs rng =
 	end
 
 let make_region spec map_rng things_rng =
-	let map_dimx, map_dimy as map_dim = 100, 100 in
+	let map_dimx, map_dimy as map_dim = 50, 50 in
 	let map_area = map_dimx * map_dimy in
 	let num_stairs = map_area / 1000 in
 	let min_stair_dist = float_of_int (max map_dimx map_dimy) /. 4. in
@@ -167,8 +167,8 @@ let make_region spec map_rng things_rng =
 		let normal_kinds = Array.append spec.weapon_kinds spec.armour_kinds in
 		let region =
 			Region.init map ups downs begin fun region ->
-				make_stuff region ups (map_area / 2000) is_clear normal_kinds spec.unique_kinds things_rng;
-				make_creatures region (map_area / 2000) is_clear spec.enemy_kinds spec.weapon_kinds spec.armour_kinds things_rng
+				make_stuff region ups (map_area / 250) is_clear normal_kinds spec.unique_kinds things_rng;
+				make_creatures region (map_area / 200) is_clear spec.enemy_kinds spec.weapon_kinds spec.armour_kinds things_rng
 			end in
 		region
 	)

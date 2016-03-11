@@ -223,8 +223,8 @@ module Thing_kinds =
 
 		let kobold =
 			make
-				~tile:'g'
-				~name:"goblin"
+				~tile:'k'
+				~name:"kobold"
 				~weight:70.
 				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
@@ -356,6 +356,7 @@ let level_specs =
 					1., quarterstaff;
 				|]
 			~armour_kinds:[|
+					1., robe;
 					1., leather_armour;
 				|]
 			~enemy_kinds:[|
@@ -365,17 +366,16 @@ let level_specs =
 		);
 		Level_spec.(make
 			~weapon_kinds:[|
-					2., dagger;
-					2., short_sword;
-					2., quarterstaff;
+					1., dagger;
+					1., short_sword;
+					1., quarterstaff;
 					1., long_sword;
 					1., spear;
 					1., battle_axe;
 					1., war_hammer;
 				|]
 			~armour_kinds:[|
-					1., robe;
-					2., leather_armour;
+					1., leather_armour;
 					1., studded_leather_armour;
 				|]
 			~enemy_kinds:[|
@@ -386,57 +386,58 @@ let level_specs =
 		);
 		Level_spec.(make
 			~weapon_kinds:[|
-					2., dagger;
-					2., short_sword;
-					2., quarterstaff;
-					2., long_sword;
-					2., spear;
-					2., battle_axe;
-					2., war_hammer;
-					1., bastard_sword;
-				|]
-			~armour_kinds:[|
-					2., leather_armour;
-					2., studded_leather_armour;
-					1., mail_corslet;
-				|]
-			~enemy_kinds:[|
-					2., goblin;
-					2., kobold;
-					1., orc;
-				|]
-			()
-		);
-		Level_spec.(make
-			~weapon_kinds:[|
-					2., dagger;
-					2., short_sword;
-					2., quarterstaff;
+					1., dagger;
+					1., short_sword;
+					1., quarterstaff;
 					2., long_sword;
 					2., spear;
 					2., battle_axe;
 					2., war_hammer;
 					2., bastard_sword;
-					1., great_sword;
-					1., great_axe;
-					1., great_spear;
-					1., great_hammer;
 				|]
 			~armour_kinds:[|
-					2., leather_armour;
+					1., leather_armour;
 					2., studded_leather_armour;
 					2., mail_corslet;
-					1., mail_hauberk;
 				|]
 			~enemy_kinds:[|
-					2., goblin;
-					2., kobold;
+					1., goblin;
+					1., kobold;
 					2., orc;
-					1., ogre;
 				|]
 			()
 		);
 		Level_spec.(make
+			~weapon_kinds:[|
+					1., dagger;
+					1., short_sword;
+					1., quarterstaff;
+					1., long_sword;
+					1., spear;
+					1., battle_axe;
+					1., war_hammer;
+					2., bastard_sword;
+					1., great_sword;
+					2., great_axe;
+					2., great_spear;
+					2., great_hammer;
+				|]
+			~armour_kinds:[|
+					1., leather_armour;
+					1., studded_leather_armour;
+					2., mail_corslet;
+					2., mail_hauberk;
+				|]
+			~enemy_kinds:[|
+					1., goblin;
+					1., kobold;
+					2., orc;
+					2., ogre;
+				|]
+			()
+		);
+		Level_spec.(make
+			~has_down_stairs:false
 			~weapon_kinds:[|
 					1., dagger;
 					1., short_sword;
@@ -458,11 +459,11 @@ let level_specs =
 					1., mail_hauberk;
 				|]
 			~enemy_kinds:[|
-					2., goblin;
-					2., kobold;
-					2., orc;
+					1., goblin;
+					1., kobold;
+					1., orc;
 					2., ogre;
-					1., giant;
+					2., giant;
 				|]
 			~unique_kinds:[|
 					thoodiam
