@@ -135,6 +135,8 @@ let _ =
 	let things_seed = ref time in
 	let game_seed = ref time in
 	Args.(parse [
+			"-seed", Int (fun s -> map_seed := s; things_seed := s; game_seed := s),
+				"seed for all randomness";
 			"-map-seed", Set_int map_seed,
 				"map generation seed";
 			"-things-seed", Set_int things_seed,
