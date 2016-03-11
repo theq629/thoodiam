@@ -9,6 +9,7 @@ type time = float
 
 type event =
 	| Tick
+	| Being_death of Being.t
 	| Being_action of Being.t
 
 module Event_queue = CCHeap.Make(
@@ -119,6 +120,7 @@ let init_being region body_kind skills at =
 let remove_being region being =
 	let found_thing = remove_thing region being.Being.at being.Being.body in
 	let found_being, beings1 = remove_from_list region.beings being in
+	region.event_queue <- Event_queue.filter (function (_, Being_action b) -> b != being | _ -> true) region.event_queue;
 	region.beings <- beings1;
 	found_thing && found_being
 
@@ -133,7 +135,8 @@ let handle_combat region attacker defender rng =
 			defender.hp <- defender.hp - hp;
 			if defender.hp <= 0 then begin
 				add_msg region defender.Being.at (Message.Die defender);
-				ignore (remove_being region defender)
+				ignore (remove_being region defender);
+				queue_event region region.time (Being_death defender)
 			end;
 			attacker.stress <- 10;
 			defender.stress <- 10
@@ -214,7 +217,7 @@ let tick region =
 	end region.beings;
 	queue_event region (region.time +. 1.) Tick
 
-let update region being_ai rng =
+let update region being_ai being_death rng =
 	region.messages <- [];
 	let rec run () =
 		match Event_queue.take region.event_queue with
@@ -227,6 +230,8 @@ let update region being_ai rng =
 				| Tick ->
 					tick region;
 					true
+				| Being_death being ->
+					being_death being
 				| Being_action being ->
 					let action, continue = being_ai being in
 					handle_action region being action rng;

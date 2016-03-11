@@ -76,8 +76,12 @@ let update game player_cmd =
 					player_cmd, false
 				end else
 					Ai.update_being game.ai being, true in
+	let on_death being =
+		match game.player with
+		| None -> true
+		| Some player -> being != player in
 	Opt.iter (Ai.update_player game.ai) game.player;
-	Region.update game.region update_ai game.rng;
+	Region.update game.region update_ai on_death game.rng;
 	Opt.iter begin fun player ->
 		if List.exists (fun b -> b == player) game.region.Region.beings then begin
 			update_vision game.region game.player_info player;
