@@ -11,6 +11,14 @@ module Terrains =
 			~tile:'#'
 			~blocking:true
 			()
+
+		let stairs_up = Terrain.make
+			~tile:'<'
+			()
+
+		let stairs_down = Terrain.make
+			~tile:'>'
+			()
 	end
 
 module Equip_slots =

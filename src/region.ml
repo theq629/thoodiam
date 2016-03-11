@@ -23,7 +23,7 @@ module Cell =
 	struct
 		type t =
 			{
-				terrain : Terrain.t;
+				mutable terrain : Terrain.t;
 				mutable things : Thing.t list;
 			}
 

@@ -1,5 +1,6 @@
 open Std
 open Game_data
+module Map_search = Graph_search.Make(Tilemap.Location)
 
 module Thing =
 	struct
