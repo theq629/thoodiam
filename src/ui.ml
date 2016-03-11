@@ -46,7 +46,7 @@ module Make =
 
 		type message =
 			| Dead
-			| See_here of Thing.t
+			| See_here of Thing.t list
 
 		type t =
 			{
@@ -171,12 +171,31 @@ module Make =
 			| Die b -> p "The %s dies." (being b)
 			))
 
+		let english_format_list list =
+			let vowels = "aeiouAEIOU" in
+			let add_article str =
+				match str with
+				| "" -> ""
+				| s ->
+					try
+						ignore (String.index vowels s.[0]);
+						"an " ^ s
+					with Not_found ->
+						"a " ^ s in
+			match list with
+			| [] -> "nothing"
+			| [s] -> add_article s
+			| [s1; s2] ->
+				String.concat " and " [add_article s1; add_article s2]
+			| _ ->
+				let num = List.length list in
+				String.concat ", " (List.mapi (fun i s -> (if i < num - 1 then "" else "and ") ^ add_article s) list)
+
 		let string_of_ui_message =
 			let p = Printf.sprintf in
-			let thing = string_of_thing in
 			function
 			| Dead -> "You are dead!"
-			| See_here t -> p "There is a %s here." (thing t)
+			| See_here t -> p "There is %s here." (english_format_list (List.map string_of_thing t))
 
 		let draw_panel styles game view =
 			let rf x = string_of_int (int_of_float (0.5 +. x)) in
@@ -344,10 +363,11 @@ module Make =
 				ui.messages <- Dead::ui.messages
 			| Some player ->
 				let at = player.Being.at in
-				let things = Game.(Region.((Map.get game.region.map at).Cell.things)) in
-				List.iter begin fun t ->
-					ui.messages <- (See_here t) :: ui.messages
-				end (List.filter (fun t -> t != player.Being.body) things)
+				let things_here =
+					List.filter (fun t -> t != player.Being.body)
+						(Game.(Region.((Map.get game.region.map at).Cell.things))) in
+				if not (List.is_empty things_here) then
+					ui.messages <- (See_here things_here) :: ui.messages
 
 		let handle_player_input game player ui key do_cmd =
 			let move_or_attack dir =
