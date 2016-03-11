@@ -143,72 +143,34 @@ module Equip_slot =
 			{ name; is_melee; is_armour; affects_combat }
 	end
 
-module Thing =
+module Thing_kind =
 	struct
-		module Kind =
-			struct
-				type t =
-					{
-						tile : tile;
-						name : string;
-						weight : float;
-						in_combat : In_combat.t option;
-						melee : Weapon.t option;
-						armour : Armour.t option;
-						visual_priority : bool;
-						equip_slots : Equip_slot.t list;
-						bodyable : Bodyable.t option;
-					}
-
-				let make
-					~tile
-					~name
-					~weight
-					?in_combat
-					?melee
-					?armour
-					?(visual_priority=false)
-					?(equip_slots=[])
-					?bodyable
-					()
-					=
-					{ tile; name; weight; in_combat; melee; armour; visual_priority; equip_slots; bodyable }
-			end
-
 		type t =
 			{
-				kind : Kind.t;
+				tile : tile;
+				name : string;
+				weight : float;
+				in_combat : In_combat.t option;
+				melee : Weapon.t option;
+				armour : Armour.t option;
+				blocks : bool;
+				equip_slots : Equip_slot.t list;
+				bodyable : Bodyable.t option;
 			}
 
-		let make kind =
-			{ kind }
-
-		let tile thing =
-			thing.kind.Kind.tile
-
-		let name thing =
-			thing.kind.Kind.name
-
-		let weight thing =
-			thing.kind.Kind.weight
-
-		let in_combat thing =
-			thing.kind.Kind.in_combat
-
-		let melee thing =
-			thing.kind.Kind.melee
-
-		let armour thing =
-			thing.kind.Kind.armour
-
-		let visual_priority thing =
-			thing.kind.Kind.visual_priority
-
-		let equip_slots thing =
-			thing.kind.Kind.equip_slots
-
-		let bodyable thing =
-			thing.kind.Kind.bodyable
+		let make
+			~tile
+			~name
+			~weight
+			?in_combat
+			?melee
+			?armour
+			?(blocks=false)
+			?(equip_slots=[])
+			?bodyable
+			()
+			=
+			{ tile; name; weight; in_combat; melee; armour; blocks; equip_slots; bodyable }
 	end
 
 module Terrain =
@@ -225,26 +187,6 @@ module Terrain =
 			()
 			=
 			{ tile; blocking }
-	end
-
-module Being =
-	struct
-		type t =
-			{
-				body : Thing.t;
-				skills : Skills.t;
-				mutable at : Map.Location.t;
-				mutable inv : Thing.t list;
-				mutable equip : (Equip_slot.t * Thing.t) list;
-				mutable can_carry : float;
-				mutable inv_weight : float;
-				mutable max_hp : int;
-				mutable hp : int;
-				mutable stress : int;
-			}
-
-		let body being =
-			being.body
 	end
 
 module Direction =
@@ -272,7 +214,3 @@ module Direction =
 			| (-1, 1) -> Some SW
 			| _ -> None
 	end
-
-let in_slot being es =
-	try Some (List.assoc es (being.Being.equip))
-	with Not_found -> None

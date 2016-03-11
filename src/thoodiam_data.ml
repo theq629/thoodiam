@@ -1,4 +1,5 @@
 open Game_data
+open Game_data
 
 module Terrains =
 	struct
@@ -31,7 +32,7 @@ module Equip_slots =
 
 module Thing_kinds =
 	struct
-		open Thing.Kind
+		open Thing_kind
 
 		let dagger =
 			make
@@ -198,7 +199,7 @@ module Thing_kinds =
 				~tile:'@'
 				~name:"human"
 				~weight:100.
-				~visual_priority:true
+				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:10
@@ -217,7 +218,7 @@ module Thing_kinds =
 				~tile:'g'
 				~name:"goblin"
 				~weight:70.
-				~visual_priority:true
+				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:8
@@ -236,7 +237,7 @@ module Thing_kinds =
 				~tile:'g'
 				~name:"goblin"
 				~weight:70.
-				~visual_priority:true
+				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:6
@@ -255,7 +256,7 @@ module Thing_kinds =
 				~tile:'o'
 				~name:"orc"
 				~weight:100.
-				~visual_priority:true
+				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:6
@@ -274,7 +275,7 @@ module Thing_kinds =
 				~tile:'O'
 				~name:"orge"
 				~weight:150.
-				~visual_priority:true
+				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:8
@@ -293,7 +294,7 @@ module Thing_kinds =
 				~tile:'H'
 				~name:"giant"
 				~weight:200.
-				~visual_priority:true
+				~blocks:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:10
@@ -312,9 +313,9 @@ module Level_spec =
 	struct
 		type t =
 			{
-				weapon_kinds : (float * Thing.Kind.t) array;
-				armour_kinds : (float * Thing.Kind.t) array;
-				enemy_kinds : (float * Thing.Kind.t) array;
+				weapon_kinds : (float * Thing_kind.t) array;
+				armour_kinds : (float * Thing_kind.t) array;
+				enemy_kinds : (float * Thing_kind.t) array;
 			}
 
 		let make

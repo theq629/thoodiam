@@ -1,6 +1,8 @@
 module Mapgen = Mapgen.Make(Game_data.Map)
 module Rng = Game_data.Rng
 open Game_data
+open Game_state
+open Game_changes
 open Thoodiam_data
 
 let choose_init_pos map is_clear rng =
@@ -43,35 +45,52 @@ let make_stuff region num is_clear use_kinds rng =
 		Region.add_thing region p thing
 	end
 
-let make_creatures region num is_clear use_being_kind use_weapon_kinds use_armour_kinds rng =
-	let rand_kind = rand_from_array use_being_kind in
+let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds =
 	let rand_weapon = rand_from_array use_weapon_kinds in
 	let rand_armour = rand_from_array use_armour_kinds in
+	fun being rng ->
+		let rec run num_tries =
+			if num_tries >= max_tries then ()
+			else begin
+				let weapon = Thing.(make (rand_weapon rng)) in
+				let armour = Thing.(make (rand_armour rng)) in
+					let a = Being.(get being weapon) in
+					let b = Being.(get being armour) in
+					let c = Being.(equip being Equip_slots.melee_weapon weapon) in
+					let d = Being.(equip being Equip_slots.armour armour) in
+				let ok =
+					a && b && c && d in
+				if ok then ()
+				else begin
+					ignore (Being.unequip being Equip_slots.melee_weapon);
+					ignore (Being.unequip being Equip_slots.armour);
+					ignore (Being.lose being weapon);
+					ignore (Being.lose being armour);
+					run (num_tries + 1)
+				end
+			end in
+		run 0
+
+let make_creatures region num is_clear use_being_kind use_weapon_kinds use_armour_kinds rng =
+	let rand_kind = rand_from_array use_being_kind in
+	let equip = equip_being use_weapon_kinds use_armour_kinds in
 	for_clear_points region.Region.map is_clear num rng begin fun p ->
 		let kind = rand_kind rng in
 		let being = Region.init_being region kind p in
-		being.Being.equip <- [
-				Equip_slots.melee_weapon, Thing.make (rand_weapon rng);
-				Equip_slots.armour, Thing.make (rand_armour rng)
-			]
+		equip being rng
 	end
 
 let make_player region is_clear being_kind use_weapon_kinds use_armour_kinds rng =
-	let rand_weapon = rand_from_array use_weapon_kinds in
-	let rand_armour = rand_from_array use_armour_kinds in
 	let at = choose_init_pos region.Region.map is_clear rng in
 	let player = Region.init_being region being_kind at in
-	player.Being.equip <- [
-			Equip_slots.melee_weapon, Thing.make (rand_weapon rng);
-			Equip_slots.armour, Thing.make (rand_armour rng)
-		];
+	equip_being ~max_tries:100 use_weapon_kinds use_armour_kinds player rng;
 	player
 
 let is_clear map p =
 	Region.(
 		let cell = Map.get map p in
 		not cell.Cell.terrain.Terrain.blocking
-		&& not (List.exists (fun t -> t.Thing.kind.Thing.Kind.visual_priority) cell.Cell.things)
+		&& not (List.exists Thing.blocks cell.Cell.things)
 	)
 
 let make_region spec map_rng things_rng =

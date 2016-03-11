@@ -1,5 +1,7 @@
 open Std
 open Game_data
+open Game_state
+open Game_changes
 
 module Player_info =
 	struct
@@ -45,8 +47,8 @@ let update_vision region player_info player =
 				let rec run =
 					function
 					| [] -> cell.Cell.terrain.Terrain.tile
-					| [t] -> Thing.(Kind.(t.kind.tile))
-					| t::_ when Thing.(Kind.(t.kind.visual_priority)) -> Thing.(Kind.(t.kind.tile))
+					| [t] -> Thing.(tile t)
+					| t::_ when Thing.(blocks t) -> Thing.(tile t)
 					| _::ts1 -> run ts1 in
 				run cell.Cell.things in
 			Map.set player_info.seen p (Some tile)
@@ -58,7 +60,7 @@ let update_vision region player_info player =
 	Opt.iter begin fun bodyable ->
 		set_visible player.Being.at;
 		Fov.compute blocks_sight set_visible player.Being.at bodyable.Bodyable.vision
-	end player.Being.body.Thing.kind.Thing.Kind.bodyable
+	end Thing.(bodyable Being.(body player))
 
 let set_player game player =
 	update_vision game.region game.player_info player;

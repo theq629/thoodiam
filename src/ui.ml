@@ -1,6 +1,7 @@
 open Std
 open Game_data
 open Game_state
+open Game_changes
 
 module Make =
 	functor (D : Display.I) ->
@@ -91,7 +92,7 @@ module Make =
 
 		let string_of_thing_inv thing =
 			Thing.(
-				Printf.sprintf "%s %0.2f" (string_of_thing thing) thing.kind.Kind.weight
+				Printf.sprintf "%s %0.2f" (string_of_thing thing) Thing.(weight thing)
 			)
 
 		let show_list title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
@@ -160,8 +161,8 @@ module Make =
 		let string_of_game_message =
 			let p = Printf.sprintf in
 			let thing = string_of_thing in
-			let being b = Being.(Thing.((b.body.kind.Kind.name))) in
-			Game_state.(Message.(function
+			let being b = Thing.(name Being.(body b)) in
+			Game_changes.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
 			| Melee_hit (a, d, hp, r) -> p "The %s hits the %s for %i damage: %s." (being a) (being d) hp (Combat.Result.to_string r)
 			| Melee_miss (a, d, r) -> p "The %s misses the %s: %s." (being a) (being d) (Combat.Result.to_string r)
@@ -230,7 +231,7 @@ module Make =
 							draw_pair "Str" (string_of_int body.str);
 							draw_pair "Dex" (string_of_int body.dex);
 							draw_pair "Con" (string_of_int body.con)
-						end player.Being.body.Thing.kind.Thing.Kind.bodyable
+						end Thing.(bodyable Being.(body player))
 					end game.player
 				);
 				draw_space ();
@@ -246,14 +247,14 @@ module Make =
 							Opt.iter begin fun thing ->
 								if equip_slot.Equip_slot.is_melee then
 									draw_line (string_of_combat_stats thing)
-							end (in_slot player equip_slot)
-						end player.Being.body.kind.Kind.equip_slots;
+							end Being.(in_slot player equip_slot)
+						end Being.(equip_slots player);
 						List.iter begin fun equip_slot ->
 							Opt.iter begin fun thing ->
 								if equip_slot.Equip_slot.is_armour then
 									draw_line (string_of_combat_stats thing)
-							end (in_slot player equip_slot)
-						end player.Being.body.kind.Kind.equip_slots
+							end Being.(in_slot player equip_slot)
+						end Being.(equip_slots player)
 					end game.player
 				)
 			)
@@ -389,28 +390,28 @@ module Make =
 				ui.user_quit <- true;
 				do_cmd Action.Quit
 			| Inventory ->
-				show_list "Inventory" string_of_thing_inv player.Being.inv ~select:false ui begin fun _ ->
+				show_list "Inventory" string_of_thing_inv Being.(inv player) ~select:false ui begin fun _ ->
 					()
 				end
 			| Equipment ->
 				let string_of_slot es =
 					Printf.sprintf "%s: %s"
 						es.Equip_slot.name
-						begin match (in_slot player es) with
+						begin match Being.(in_slot player es) with
 							| Some t -> string_of_thing_inv t
 							| None -> ""
 						end in
-				show_list "Equipment" string_of_slot (player.Being.body.Thing.kind.Thing.Kind.equip_slots) ~repeat:true ui begin fun equip_slot ->
-					match (in_slot player equip_slot) with
+				show_list "Equipment" string_of_slot Being.(equip_slots player) ~repeat:true ui begin fun equip_slot ->
+					match Being.(in_slot player equip_slot) with
 					| Some _ ->
 						do_cmd Action.(Unequip equip_slot)
 					| None ->
-						show_list (Printf.sprintf "Equip as %s" equip_slot.Equip_slot.name) string_of_thing_inv player.Being.inv ui begin fun thing ->
+						show_list (Printf.sprintf "Equip as %s" equip_slot.Equip_slot.name) string_of_thing_inv Being.(inv player) ui begin fun thing ->
 							do_cmd Action.(Equip (thing, equip_slot))
 						end
 				end
 			| Drop ->
-				show_list "Drop" string_of_thing_inv player.Being.inv ~multiple:true ui begin fun thing ->
+				show_list "Drop" string_of_thing_inv Being.(inv player) ~multiple:true ui begin fun thing ->
 					do_cmd Action.(Drop thing)
 				end
 			| Pick_up ->

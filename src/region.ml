@@ -4,6 +4,7 @@ module Map = Tilemap.Square
 module Fov = Fov_adammil
 open Game_data
 open Game_state
+open Game_changes
 
 type time = float
 
@@ -90,29 +91,7 @@ let place_being region being at =
 	found
 
 let init_being region body_kind at =
-	let being_body = Thing.make body_kind in
-	let scale_stat base scale = 0.5 +. base *. 1.2**(float_of_int scale) in
-	let max_hp, can_carry, skills =
-		match being_body.Thing.kind.Thing.Kind.bodyable with
-		| None -> 0, 0., Skills.default
-		| Some b ->
-			Bodyable.(
-				round_to_int (scale_stat 2. b.con),
-				scale_stat 2. b.str,
-				b.def_skills
-			) in
-	let being = Being.({
-			at = at;
-			skills = skills;
-			body = being_body;
-			inv = [];
-			equip = [];
-			can_carry = can_carry;
-			inv_weight = 0.;
-			max_hp = max_hp;
-			hp = max_hp;
-			stress = 0;
-		}) in
+	let being = Being.make body_kind at in
 	ignore (place_being region being being.Being.at);
 	region.beings <- being::region.beings;
 	queue_event region region.time (Being_action being);
@@ -132,7 +111,7 @@ let kill_being region being =
 		queue_event region region.time (Being_death being);
 		List.iter begin fun thing ->
 			add_thing region being.at thing
-		end being.inv;
+		end Being.(inv being);
 		List.iter begin fun (_, thing) ->
 			add_thing region being.at thing
 		end being.equip;
@@ -167,7 +146,7 @@ let handle_action region being action rng =
 			let cell = Map.get region.map p1 in
 			if (Map.is_valid region.map p1)
 				&& not cell.Cell.terrain.Terrain.blocking
-				&& not (List.exists (fun t -> t.Thing.kind.Thing.Kind.visual_priority) cell.Cell.things) then begin
+				&& not (List.exists Thing.blocks cell.Cell.things) then begin
 				ignore (place_being region being p1)
 			end
 		end
@@ -179,42 +158,24 @@ let handle_action region being action rng =
 				handle_combat region being being1 rng
 		end
 	| Pick_up thing -> begin
-			let new_weight = being.Being.inv_weight +. thing.Thing.kind.Thing.Kind.weight in
-			if new_weight <= being.Being.can_carry then begin
-				let found = remove_thing region being.Being.at thing in
-				if found then begin
-					add_msg region being.Being.at (Message.Pick_up (being, thing));
-					being.Being.inv <- thing::being.Being.inv;
-					being.Being.inv_weight <- being.Being.inv_weight +. thing.Thing.kind.Thing.Kind.weight
-				end
-			end
+			let found = remove_thing region being.Being.at thing in
+			if found && Being.get being thing then
+				add_msg region being.Being.at (Message.Pick_up (being, thing))
 		end
 	| Drop thing -> begin
-			let found, inv1 = remove_from_list being.Being.inv thing in
-			if found then begin
+			if Being.lose being thing then begin
 				add_msg region being.Being.at (Message.Drop (being, thing));
-				being.Being.inv <- inv1;
-				add_thing region being.Being.at thing;
-				being.Being.inv_weight <- being.Being.inv_weight -. thing.Thing.kind.Thing.Kind.weight
+				add_thing region being.Being.at thing
 			end
 		end
 	| Equip (thing, equip_slot) -> begin
-			if List.mem equip_slot being.Being.body.Thing.kind.Thing.Kind.equip_slots && not (List.mem_assoc equip_slot being.Being.equip) then begin
-				let found, inv1 = remove_from_list being.Being.inv thing in
-				if found then begin
-					add_msg region being.Being.at (Message.Equip (being, equip_slot, thing));
-					being.Being.inv <- inv1;
-					being.Being.equip <- (equip_slot, thing)::being.Being.equip
-				end
-			end
+			if Being.equip being equip_slot thing then
+				add_msg region being.Being.at (Message.Equip (being, equip_slot, thing))
 		end
 	| Unequip equip_slot -> begin
-			try
-				let thing = List.assoc equip_slot being.Being.equip in
-				add_msg region being.Being.at (Message.Unequip (being, equip_slot, thing));
-				being.Being.equip <- List.remove_assoc equip_slot being.Being.equip;
-				being.Being.inv <- thing :: being.Being.inv
-			with Not_found -> ()
+			match Being.unequip being equip_slot with
+			| Some thing -> add_msg region being.Being.at (Message.Unequip (being, equip_slot, thing))
+			| None -> ()
 		end
 	end
 

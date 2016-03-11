@@ -1,5 +1,6 @@
 open Std
 open Game_data
+open Game_state
 
 let factors_to_string ?(need_parens=true) empty_string part_to_string factors =
 	let parts = List.map begin function
@@ -99,10 +100,10 @@ let calc_attack attacker weapon =
 					| Some ic when ic.In_combat.accuracy != 0 || (match weapon with Some w -> w == thing | None -> false) ->
 						Some (Some (Thing.name thing), ic.In_combat.accuracy)
 					| _ -> None
-				end (in_slot attacker equip_slot)
+				end Being.(in_slot attacker equip_slot)
 			end else
 				None
-		end attacker.Being.body.Thing.kind.Thing.Kind.equip_slots in
+		end Being.(equip_slots attacker) in
 	Roll.({
 		base = (Some "melee", Being.(attacker.skills.Skills.melee))::from_equip;
 		dice = [None, d1d20];
@@ -117,10 +118,10 @@ let calc_evasion defender =
 					| Some ic when ic.In_combat.evasion != 0 || equip_slot.Equip_slot.is_armour ->
 						Some (Some (Thing.name thing), ic.In_combat.evasion)
 					| _ -> None
-				end (in_slot defender equip_slot)
+				end Being.(in_slot defender equip_slot)
 			end else
 				None
-		end defender.Being.body.Thing.kind.Thing.Kind.equip_slots in
+		end Being.(equip_slots defender) in
 	Roll.({
 		base = (Some "evasion", Being.(defender.skills.Skills.melee))::from_equip;
 		dice = [None, d1d20];
@@ -130,12 +131,12 @@ let calc_protection defender =
 	let armour_dice =
 		List.filter_map begin fun equip_slot ->
 			Opt.flat_map begin fun thing ->
-				match thing.Thing.kind.Thing.Kind.armour with
+				match Thing.(armour thing) with
 				| None -> None
 				| Some stats ->
-					Some (Some thing.Thing.kind.Thing.Kind.name, Mod_dice.of_dice stats.Armour.protection)
-			end (in_slot defender equip_slot)
-		end defender.Being.body.Thing.kind.Thing.Kind.equip_slots in
+					Some (Some Thing.(name thing), Mod_dice.of_dice stats.Armour.protection)
+			end Being.(in_slot defender equip_slot)
+		end Being.(equip_slots defender) in
 	Roll.({
 		base = [];
 		dice = armour_dice;
@@ -166,8 +167,8 @@ let calc_damage attacker (weapon : Thing.t option) =
 
 let melee_combat attacker defender rng =
 	let weapon =
-		let slots = List.filter (fun es -> es.Equip_slot.is_melee) attacker.Being.body.Thing.kind.Thing.Kind.equip_slots in
-		let weapons = List.filter_map (in_slot attacker) slots in
+		let slots = List.filter (fun es -> es.Equip_slot.is_melee) Being.(equip_slots attacker) in
+		let weapons = List.filter_map Being.(in_slot attacker) slots in
 		match weapons with
 		| [] -> None
 		| _ -> Some (Rng.Uniform.list_elt weapons rng) in
