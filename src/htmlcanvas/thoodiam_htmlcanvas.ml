@@ -44,24 +44,28 @@ let make_styles disp =
 		})) in
 	ui_styles, extra_styles
 
+let log_unknown_key key =
+	let is_shift, key_code = key in
+	Printf.eprintf "unknown key %s%i\n" (if is_shift then "shift+" else "") key_code
+
 let process_input key =
 	Ui.Key.(
-		if key = 81 then Some Quit
-		else if key = 190 then Some Wait
-		else if key = 38 || key = 75 || key = 107 then Some N
-		else if key = 40 || key = 74 || key = 106 then Some S
-		else if key = 37 || key = 72 || key = 104 then Some W
-		else if key = 39 || key = 76 || key = 108 then Some E
-		else if key = 89 || key = 121 then Some NW
-		else if key = 85 || key = 117 then Some NE
-		else if key = 66 || key = 98 then Some SW
-		else if key = 78 || key = 110 then Some SE
-		else if key = 103 then Some Pick_up
-		else if key == 100 then Some Drop
-		else if key = 105 then Some Inventory
-		else if key == 101 then Some Equipment
+		if key = (true, 81) then Some Quit
+		else if key = (false, 190) then Some Wait
+		else if key = (false, 38) || key = (false, 75) then Some N
+		else if key = (false, 40) || key = (false, 74) then Some S
+		else if key = (false, 37) || key = (false, 72) then Some W
+		else if key = (false, 39) || key = (false, 76) then Some E
+		else if key = (false, 89) then Some NW
+		else if key = (false, 85) then Some NE
+		else if key = (false, 66) then Some SW
+		else if key = (false, 78) then Some SE
+		else if key = (false, 71) then Some Pick_up
+		else if key = (false, 68) then Some Drop
+		else if key = (false, 73) then Some Inventory
+		else if key = (false, 69) then Some Equipment
 		else begin
-			Printf.eprintf "unknown key %i\n" key;
+			log_unknown_key key;
 			None
 		end
 	)
@@ -73,15 +77,19 @@ let process_popup_input key =
 			Ch_map.add (int_of_char str.[0]) i m, i + 1
 		end (Ch_map.empty, 0) Ui.letter_list_ids in
 	Ui.Key.(
-		if key = 27 || key = 13 then Some End
-		else if key = 32 || key = 221 then Some Page_down
-		else if key = 219 then Some Page_up
+		if key = (false, 27) || key = (false, 13) then Some End
+		else if key = (false, 32) || key = (false, 221) then Some Page_down
+		else if key = (false, 219) then Some Page_up
 		else begin
-			match Ch_map.get key list_id_set with
+			let is_shift, key_code = key in
+			let use_key_code =
+				key_code
+				+ if is_shift && key_code >= 65 && key_code <= 90 then 0 else 32 in
+			match Ch_map.get use_key_code list_id_set with
 			| Some i ->
 				Some (List_item i)
 			| None ->
-				Printf.eprintf "unknown key %i\n" key;
+				log_unknown_key key;
 				None
 		end
 	)

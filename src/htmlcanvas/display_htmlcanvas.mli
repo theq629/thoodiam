@@ -2,7 +2,7 @@ type t
 type disp = t
 type screen_pos = int * int
 type split_dir = Horiz | Vert
-type key = int
+type key = bool * int
 
 module Window :
 	sig
