@@ -7,7 +7,7 @@ module Make =
 	functor (D : Display.I) ->
 	struct
 		let panel_width = 16
-		let status_height = 5
+		let status_height = 6
 
 		module Styles =
 			struct
