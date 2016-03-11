@@ -155,7 +155,7 @@ let handle_action region being action rng =
 	begin match action with
 	| Quit -> begin
 			add_msg region being.Being.at (Message.Die being);
-			ignore (remove_being region being);
+			ignore (kill_being region being);
 			true
 		end
 	| Wait -> begin
