@@ -130,11 +130,7 @@ let update_game disp ui game key =
 	end (Opt.flat_map process_input key);
 	Ui.draw ui disp game
 
-let onload _ =
-	let time = int_of_float ((jsnew Js.date_now ())##getTime ()) in
-	let map_seed = time in
-	let things_seed = time in
-	let game_seed = time in
+let run map_seed things_seed game_seed =
 	let game = Thoodiam.init map_seed things_seed game_seed in
 	let disp = Disp.init Dom_html.document##body in
 	let ui_styles, extra_styles = make_styles disp in
@@ -154,5 +150,39 @@ let onload _ =
 	end;
 	Js._false
 
+let parse_url_params params url =
+	let parse_param i (key, on_value) =
+		try
+			let j =
+				max
+					(String.find ~start:i ~sub:("?" ^ key) url)
+					(String.find ~start:i ~sub:("&" ^ key) url) in
+			if j < 0 then raise Not_found
+			else
+				let k = j + String.length key + 2 in
+				let l =
+					try String.index_from url k '&'
+					with Not_found -> String.length url in
+				on_value (String.sub url k (l - k))
+		with Not_found | Invalid_argument _ ->
+			() in
+	try
+		let i = String.rindex url '?' in
+		List.iter (parse_param i) params
+	with Not_found ->
+		()
+
 let _ =
-	Dom_html.window##onload <- Dom_html.handler onload
+	Dom_html.window##onload <- Dom_html.handler begin fun _ ->
+			let time = int_of_float ((jsnew Js.date_now ())##getTime ()) in
+			let map_seed = ref time in
+			let things_seed = ref time in
+			let game_seed = ref time in
+			parse_url_params [
+					"seed", (fun s -> let s = int_of_string s in map_seed := s; things_seed := s; game_seed := s);
+					"mapseed", (fun s -> map_seed := int_of_string s);
+					"thingsseed", (fun s -> things_seed := int_of_string s);
+					"gameseed", (fun s -> game_seed := int_of_string s);
+				] (Js.to_string (Dom_html.window##location##href));
+			run !map_seed !things_seed !game_seed
+		end
