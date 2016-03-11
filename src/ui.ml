@@ -121,6 +121,31 @@ module Make =
 					run k (line::lines) in
 			List.rev (run 0 [])
 
+		let show_info ?(can_finish=true) ?(on_finish=fun _ -> ()) title text ui =
+			ui.do_popup ui begin fun view key ->
+				let continue =
+					Key.(match key with
+					| None -> true
+					| Some End | Some Page_down ->
+						if can_finish then begin
+							on_finish ();
+							false
+						end else
+							true
+					| _ -> true
+					) in
+				D.Text_view.clear view;
+				D.Text_view.draw view ~style:ui.styles.Styles.popup_label (1, 1) title;
+				let dimx, dimy = D.Text_view.dim view in
+				let lines = wrap_string (dimx / 10) (dimx - 2) text in
+				List.iteri begin fun i line ->
+					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 3 + i) line
+				end lines;
+				D.Text_view.draw view ~style:ui.styles.Styles.popup_key (1, 4 + List.length lines) "continue";
+				D.Text_view.refresh view;
+				continue
+			end
+
 		let show_confirm title text ui default f =
 			ui.do_popup ui begin fun view key ->
 				let continue =
@@ -230,33 +255,13 @@ module Make =
 			| Die b -> p "The %s dies." (being b)
 			))
 
-		let english_format_list list =
-			let vowels = "aeiouAEIOU" in
-			let add_article str =
-				match str with
-				| "" -> ""
-				| s ->
-					try
-						ignore (String.index vowels s.[0]);
-						"an " ^ s
-					with Not_found ->
-						"a " ^ s in
-			match list with
-			| [] -> "nothing"
-			| [s] -> add_article s
-			| [s1; s2] ->
-				String.concat " and " [add_article s1; add_article s2]
-			| _ ->
-				let num = List.length list in
-				String.concat ", " (List.mapi (fun i s -> (if i < num - 1 then "" else "and ") ^ add_article s) list)
-
 		let string_of_ui_message =
 			let p = Printf.sprintf in
 			function
 			| Mystery_nonexistance -> "You have ceased to exist for an unknown reason!"
 			| Dead -> "You are dead!"
 			| Left -> "You lost by leaving the dungeon!"
-			| See_here t -> p "There is %s here." (english_format_list (List.map string_of_thing t))
+			| See_here t -> p "There is %s here." (English.strings_list (List.map string_of_thing t))
 
 		let draw_panel styles game view =
 			let rf x = string_of_int (int_of_float (0.5 +. x)) in

@@ -116,11 +116,13 @@ let make_ui ui_styles extra_styles disp =
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.status_bg ui.Ui.status;
 	ui
 
-let run map_seed things_seed game_seed =
+let run map_seed things_seed game_seed skip_welcome =
 	let game = Thoodiam.init map_seed things_seed game_seed in
 	Disp.with_display begin fun disp ->
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui ui_styles extra_styles disp in
+		if not skip_welcome then
+			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ui;
 		while not ui.Ui.user_quit do
 			Ui.draw ui disp game;
 			match process_game_input (Disp.get_key disp) with
@@ -130,7 +132,8 @@ let run map_seed things_seed game_seed =
 				end;
 				Ui.update_game game ui
 			| None -> ()
-		done
+		done;
+		Ui.show_info "Game over" (Thoodiam_data.game_over_text game.Game.status) ui
 	end
 
 let _ =
@@ -138,6 +141,7 @@ let _ =
 	let map_seed = ref time in
 	let things_seed = ref time in
 	let game_seed = ref time in
+	let skip_welcome = ref false in
 	Args.(parse [
 			"-seed", Int (fun s -> map_seed := s; things_seed := s; game_seed := s),
 				"seed for all randomness";
@@ -147,5 +151,7 @@ let _ =
 				"thing generation seed";
 			"-game-seed", Set_int game_seed,
 				"game chances seed";
+			"-skip-welcome", Set skip_welcome,
+				"skip welcome screen";
 		] []);
-	run !map_seed !things_seed !game_seed
+	run !map_seed !things_seed !game_seed !skip_welcome

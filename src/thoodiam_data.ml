@@ -458,3 +458,14 @@ let level_specs =
 			()
 		);
 	|]
+
+let welcome_text =
+	Printf.sprintf
+		"You have heard that the artifact known only as the Thoodiam lies on the %s level of this dungeon. You must reach it and bring it back to the surface to succeed (or that's what you could do if winning was actually implemented, that is)."
+		(English.int (Array.length level_specs))
+
+let game_over_text =
+	function
+	| Game.Playing -> "You are still playing!"
+	| Game.Lost Game.Died -> "You died."
+	| Game.Lost Game.Left -> "You lost by leaving the dungeon without the Thoodiam."

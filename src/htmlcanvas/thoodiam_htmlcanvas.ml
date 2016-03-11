@@ -135,15 +135,17 @@ let make_ui ui_styles extra_styles disp update_queue =
 
 let update_game disp ui game key =
 	Opt.iter begin fun key ->
-		Ui.handle_input game ui key begin fun cmd ->
-			Game.update game cmd
+		Ui.handle_input !game ui key begin fun cmd ->
+			Game.update !game cmd
 		end;
-		Ui.update_game game ui
+		Ui.update_game !game ui
 	end (Opt.flat_map process_input key);
-	Ui.draw ui disp game
+	Ui.draw ui disp !game
 
-let run map_seed things_seed game_seed =
-	let game = Thoodiam.init map_seed things_seed game_seed in
+let run map_seed things_seed game_seed skip_welcome =
+	let make_game () =
+		Thoodiam.init map_seed things_seed game_seed in
+	let game = ref (make_game ()) in
 	let disp = Disp.init Dom_html.document##body in
 	let ui_styles, extra_styles = make_styles disp in
 	let update_queue = ref [] in
@@ -157,8 +159,19 @@ let run map_seed things_seed game_seed =
 	Disp.on_refresh disp begin fun _ ->
 		update None
 	end;
+	let show_welcome () =
+		if not skip_welcome then
+			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ui in
+	show_welcome ();
 	Disp.input_loop disp begin fun key ->
-		update (Some key)
+		update (Some key);
+		match !game.Game.status with
+		| Game.Playing -> ()
+		| status ->
+			Ui.show_info "Game over" (Thoodiam_data.game_over_text status) ~on_finish:begin fun () ->
+				game := make_game ();
+				show_welcome ()
+			end ui
 	end;
 	Js._false
 
@@ -190,11 +203,13 @@ let _ =
 			let map_seed = ref time in
 			let things_seed = ref time in
 			let game_seed = ref time in
+			let skip_welcome = ref false in
 			parse_url_params [
 					"seed", (fun s -> let s = int_of_string s in map_seed := s; things_seed := s; game_seed := s);
 					"mapseed", (fun s -> map_seed := int_of_string s);
 					"thingsseed", (fun s -> things_seed := int_of_string s);
 					"gameseed", (fun s -> game_seed := int_of_string s);
+					"skipwelcome", (fun _ -> skip_welcome := true);
 				] (Js.to_string (Dom_html.window##location##href));
-			run !map_seed !things_seed !game_seed
+			run !map_seed !things_seed !game_seed !skip_welcome
 		end
