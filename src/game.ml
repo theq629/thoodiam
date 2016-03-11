@@ -55,6 +55,7 @@ type t =
 		mutable status : game_status;
 		mutable on_level : int;
 		mutable levels : (int * Region.t) list;
+		mutable saved_player_info : (int * Player_info.t) list;
 		mutable ai : Ai.t;
 		mutable region : Region.t;
 		mutable player : Being.t option;
@@ -95,7 +96,9 @@ let set_level game level_i =
 		game.region <- region;
 		game.on_level <- level_i;
 		game.ai <- Ai.make region;
-		game.player_info <- Player_info.make region
+		game.player_info <-
+			try List.assoc level_i game.saved_player_info
+			with Not_found -> Player_info.make region
 	end;
 	(* TODO: probably don't need this? *)
 	Opt.iter begin fun player ->
@@ -118,6 +121,7 @@ let make make_level init_player check_win rng =
 		status = Playing;
 		on_level = first_level_i;
 		levels = [first_level_i, first_level];
+		saved_player_info = [first_level_i, player_info];
 		region = first_level;
 		ai = Ai.make first_level;
 		player = Some player;
