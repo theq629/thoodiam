@@ -64,6 +64,8 @@ let process_input key =
 		else if key = (false, 68) then Some Drop
 		else if key = (false, 73) then Some Inventory
 		else if key = (false, 69) then Some Equipment
+		else if key = (true, 188) then Some Up_stairs
+		else if key = (true, 190) then Some Down_stairs
 		else begin
 			log_unknown_key key;
 			None

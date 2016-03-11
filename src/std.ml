@@ -19,6 +19,6 @@ let rec list_index x =
 	let rec run i =
 		function
 		| [] -> None
-		| y::ys when y == x -> Some i
+		| y::ys when y = x -> Some i
 		| _::ys -> run (i + 1) ys in
 	run 0

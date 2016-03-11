@@ -3,6 +3,9 @@ open Game_data
 open Game_state
 open Game_changes
 
+type lose_reason = Died | Left
+type game_status = Playing | Lost of lose_reason
+
 module Player_info =
 	struct
 		type t =
@@ -48,6 +51,7 @@ type t =
 	{
 		rng : Rng.Source.t;
 		make_level : int -> Region.t;
+		mutable status : game_status;
 		mutable on_level : int;
 		mutable levels : (int * Region.t) list;
 		mutable ai : Ai.t;
@@ -57,33 +61,40 @@ type t =
 	}
 
 let set_level game level_i =
-	let region =
-		try
-			let l = List.assoc level_i game.levels in
-			Printf.eprintf "using cached level\n";
-			l
-		with Not_found ->
-			Printf.eprintf "using new level\n";
-			let new_region = game.make_level level_i in
-			game.levels <- (level_i, new_region)::game.levels;
-			new_region in
-	Opt.iter begin fun player ->
-		assert (match region.Region.down_stairs with [] -> false | _ -> true);
-		assert (match region.Region.up_stairs with [] -> false | _ -> true);
-		let down_stairs_i =
-			match list_index player.Being.at region.Region.down_stairs with
-			| Some level_i -> level_i
-			| None -> Rng.Uniform.int 0 (List.length region.Region.down_stairs) game.rng in
-		let player_at =
-			let ds = region.Region.up_stairs in
-			List.nth ds (down_stairs_i mod List.length ds) in
-		ignore (Region.remove_being game.region player);
-		ignore (Region.place_being region player player_at)
-	end game.player;
-	game.region <- region;
-	game.on_level <- level_i;
-	game.ai <- Ai.make region;
-	game.player_info <- Player_info.make region;
+	if level_i < 0 then begin
+		game.player <- None;
+		game.status <- Lost Left
+	end else begin
+		let region =
+			try List.assoc level_i game.levels
+			with Not_found ->
+				let new_region = game.make_level level_i in
+				game.levels <- (level_i, new_region)::game.levels;
+				new_region in
+		Region.revisit region;
+		Opt.iter begin fun player ->
+			let from_stairs, to_stairs =
+				Region.(
+					if level_i < game.on_level then game.region.up_stairs, region.down_stairs
+					else game.region.down_stairs, region.up_stairs
+				) in
+			assert (match from_stairs with [] -> false | _ -> true);
+			assert (match to_stairs with [] -> false | _ -> true);
+			let from_stairs_i =
+				match list_index player.Being.at from_stairs with
+				| Some i -> i
+				| None -> Rng.Uniform.int 0 (List.length from_stairs) game.rng in
+			let to_stairs_i = from_stairs_i mod List.length to_stairs in
+			let player_at =
+				List.nth to_stairs to_stairs_i in
+			ignore (Region.transfer_being game.region player region player_at)
+		end game.player;
+		game.region <- region;
+		game.on_level <- level_i;
+		game.ai <- Ai.make region;
+		game.player_info <- Player_info.make region
+	end;
+	(* TODO: probably don't need this? *)
 	Opt.iter begin fun player ->
 		update_vision game.region game.player_info player
 	end game.player
@@ -100,6 +111,7 @@ let make make_level init_player rng =
 	{
 		rng = rng;
 		make_level = make_level;
+		status = Playing;
 		on_level = first_level_i;
 		levels = [first_level_i, first_level];
 		region = first_level;
@@ -123,9 +135,21 @@ let update game player_cmd =
 	let on_death being =
 		match game.player with
 		| None -> true
-		| Some player -> being != player in
+		| Some player ->
+			if being == player then begin
+				game.status <- Lost Died;
+				false
+			end else true in
+	let on_take_stairs being dir =
+		match game.player with
+		| None -> true
+		| Some player ->
+			if being == player then begin
+				set_level game (game.on_level + match dir with Up -> -1 | Down -> 1);
+				false
+			end else true in
 	Opt.iter (Ai.update_player game.ai) game.player;
-	Region.update game.region update_ai on_death game.rng;
+	Region.update game.region update_ai on_death on_take_stairs game.rng;
 	Opt.iter begin fun player ->
 		if List.exists (fun b -> b == player) game.region.Region.beings then begin
 			update_vision game.region game.player_info player;

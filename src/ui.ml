@@ -37,6 +37,8 @@ module Make =
 					| Page_down
 					| End
 					| List_item of int
+					| Down_stairs
+					| Up_stairs
 					| Wait
 					| Quit
 			end
@@ -46,7 +48,9 @@ module Make =
 			Array.init (String.length s) (fun i -> String.make 1 s.[i])
 
 		type message =
+			| Mystery_nonexistance
 			| Dead
+			| Left
 			| See_here of Thing.t list
 
 		type t =
@@ -169,6 +173,7 @@ module Make =
 			| Drop (b, t) -> p "The %s drops up the %s." (being b) (thing t)
 			| Equip (b, _, t) -> p "The %s equips up the %s." (being b) (thing t)
 			| Unequip (b, _, t) -> p "The %s unequips up the %s." (being b) (thing t)
+			| Take_stairs (b, d) -> p "The %s takes the stairs %s." (being b) (match d with Up -> "up" | Down -> "down")
 			| Die b -> p "The %s dies." (being b)
 			))
 
@@ -195,7 +200,9 @@ module Make =
 		let string_of_ui_message =
 			let p = Printf.sprintf in
 			function
+			| Mystery_nonexistance -> "You have ceased to exist for an unknown reason!"
 			| Dead -> "You are dead!"
+			| Left -> "You lost by leaving the dungeon!"
 			| See_here t -> p "There is %s here." (english_format_list (List.map string_of_thing t))
 
 		let draw_panel styles game view =
@@ -218,6 +225,8 @@ module Make =
 				D.Text_view.draw view ~style:styles.Styles.panel_text (8 + 3 + 3 + 1 - String.length max_value, !y) max_value;
 				incr y in
 			Game.(
+				draw_pair "Level" (string_of_int (game.Game.on_level + 1));
+				draw_space ();
 				Being.(
 					Opt.iter begin fun being ->
 						draw_triple "HP" (string_of_int being.hp) (string_of_int being.max_hp);
@@ -361,7 +370,11 @@ module Make =
 		let update_game game ui =
 			match game.Game.player with
 			| None ->
-				ui.messages <- Dead::ui.messages
+				Game.(match game.status with
+				| Playing -> ui.messages <- Mystery_nonexistance::ui.messages
+				| Lost Died -> ui.messages <- Dead::ui.messages
+				| Lost Left -> ui.messages <- Left::ui.messages
+				)
 			| Some player ->
 				let at = player.Being.at in
 				let things_here =
@@ -424,6 +437,14 @@ module Make =
 					show_list "Get" string_of_thing_inv ts ~multiple:true ui begin fun thing ->
 						do_cmd Action.(Pick_up thing)
 					end
+				end
+			| Up_stairs -> begin
+					if List.mem player.Being.at game.Game.region.Region.up_stairs then
+						do_cmd Action.(Take_stairs Up)
+				end
+			| Down_stairs -> begin
+					if List.mem player.Being.at game.Game.region.Region.down_stairs then
+						do_cmd Action.(Take_stairs Down)
 				end
 			| _ -> ()
 			)

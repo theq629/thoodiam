@@ -60,6 +60,8 @@ let process_game_input ch =
 		else if ch == int_of_char 'u' then Some NE
 		else if ch == int_of_char 'b' then Some SW
 		else if ch == int_of_char 'n' then Some SE
+		else if ch == int_of_char '<' then Some Up_stairs
+		else if ch == int_of_char '>' then Some Down_stairs
 		else None
 	)
 
@@ -141,7 +143,7 @@ let _ =
 				"map generation seed";
 			"-things-seed", Set_int things_seed,
 				"thing generation seed";
-			"-game-seed", Set_int map_seed,
+			"-game-seed", Set_int game_seed,
 				"game chances seed";
 		] []);
 	run !map_seed !things_seed !game_seed

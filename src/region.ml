@@ -12,6 +12,7 @@ type event =
 	| Tick
 	| Being_death of Being.t
 	| Being_action of Being.t
+	| Take_stairs of (Being.t * stairs_dir)
 
 module Event_queue = CCHeap.Make(
 	struct
@@ -78,6 +79,9 @@ let init map up_stairs down_stairs configure =
 	queue_event region 0. Tick;
 	region
 
+let revisit region =
+	region.messages <- []
+
 let add_thing region p thing =
 	let cell = Map.get region.map p in
 	cell.Cell.things <- thing::cell.Cell.things
@@ -107,6 +111,16 @@ let remove_being region being =
 	region.event_queue <- Event_queue.filter (function (_, Being_action b) -> b != being | _ -> true) region.event_queue;
 	region.beings <- beings1;
 	found_thing && found_being
+
+let transfer_being region1 being region2 at =
+	if remove_being region1 being then begin
+		region2.beings <- being::region2.beings;
+		add_thing region2 at being.Being.body;
+		being.Being.at <- at;
+		queue_event region2 region2.time (Being_action being);
+		true
+	end else
+		false
 
 let kill_being region being =
 	Being.(
@@ -141,10 +155,12 @@ let handle_action region being action rng =
 	begin match action with
 	| Quit -> begin
 			add_msg region being.Being.at (Message.Die being);
-			ignore (remove_being region being)
+			ignore (remove_being region being);
+			true
 		end
-	| Wait ->
-		()
+	| Wait -> begin
+			false
+		end
 	| Move dir -> begin
 			let p1 = Vec.(being.Being.at + Direction.to_vec dir) in
 			let cell = Map.get region.map p1 in
@@ -152,34 +168,54 @@ let handle_action region being action rng =
 				&& not cell.Cell.terrain.Terrain.blocking
 				&& not (List.exists Thing.blocks cell.Cell.things) then begin
 				ignore (place_being region being p1)
-			end
+			end;
+			false
 		end
 	| Melee_attack dir -> begin
 			let p1 = Vec.(being.Being.at + Direction.to_vec dir) in
-			match List.find_pred (fun b -> b.Being.at = p1) region.beings with
+			begin match List.find_pred (fun b -> b.Being.at = p1) region.beings with
 			| None -> ()
 			| Some being1 ->
 				handle_combat region being being1 rng
-		end
+			end;
+			false
+		end;
 	| Pick_up thing -> begin
 			let found = remove_thing region being.Being.at thing in
 			if found && Being.get being thing then
-				add_msg region being.Being.at (Message.Pick_up (being, thing))
+				add_msg region being.Being.at (Message.Pick_up (being, thing));
+			false
 		end
 	| Drop thing -> begin
 			if Being.lose being thing then begin
 				add_msg region being.Being.at (Message.Drop (being, thing));
 				add_thing region being.Being.at thing
-			end
+			end;
+			false
 		end
 	| Equip (thing, equip_slot) -> begin
 			if Being.equip being equip_slot thing then
-				add_msg region being.Being.at (Message.Equip (being, equip_slot, thing))
+				add_msg region being.Being.at (Message.Equip (being, equip_slot, thing));
+			false
 		end
 	| Unequip equip_slot -> begin
-			match Being.unequip being equip_slot with
+			begin match Being.unequip being equip_slot with
 			| Some thing -> add_msg region being.Being.at (Message.Unequip (being, equip_slot, thing))
 			| None -> ()
+			end;
+			false
+		end
+	| Take_stairs dir-> begin
+			let stairs_list =
+				match dir with
+				| Up -> region.up_stairs
+				| Down -> region.down_stairs in
+			if List.mem being.Being.at stairs_list then begin
+				add_msg region being.Being.at (Message.Take_stairs (being, dir));
+				queue_event region region.time (Take_stairs (being, dir));
+				true
+			end else
+				false
 		end
 	end
 
@@ -193,7 +229,7 @@ let tick region =
 	end region.beings;
 	queue_event region (region.time +. 1.) Tick
 
-let update region being_ai being_death rng =
+let update region being_ai being_death take_stairs rng =
 	region.messages <- [];
 	let rec run () =
 		match Event_queue.take region.event_queue with
@@ -210,9 +246,15 @@ let update region being_ai being_death rng =
 					being_death being
 				| Being_action being ->
 					let action, continue = being_ai being in
-					handle_action region being action rng;
-					queue_event region (region.time +. time_for_action action) (Being_action being);
-					continue
+					let deferred = handle_action region being action rng in
+					if deferred then begin
+						true
+					end else begin
+						queue_event region (region.time +. time_for_action action) (Being_action being);
+						continue
+					end
+				| Take_stairs (being, dir) ->
+					take_stairs being dir
 				end in
 			if continue then run ()
 			else () in
