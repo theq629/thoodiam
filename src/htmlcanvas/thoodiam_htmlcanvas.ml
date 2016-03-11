@@ -82,6 +82,8 @@ let process_popup_input key =
 		if key = (false, 27) || key = (false, 13) then Some End
 		else if key = (false, 32) || key = (false, 221) then Some Page_down
 		else if key = (false, 219) then Some Page_up
+		else if key = (false, 89) then Some Yes
+		else if key = (false, 78) then Some No
 		else begin
 			let is_shift, key_code = key in
 			let use_key_code =

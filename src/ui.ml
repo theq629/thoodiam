@@ -36,6 +36,8 @@ module Make =
 					| Page_up
 					| Page_down
 					| End
+					| Yes
+					| No
 					| List_item of int
 					| Down_stairs
 					| Up_stairs
@@ -98,6 +100,57 @@ module Make =
 			Thing.(
 				Printf.sprintf "%s %0.2f" (string_of_thing thing) Thing.(weight thing)
 			)
+
+		let wrap_string max_space_adjust len str =
+			let n = String.length str in
+			let rec prev_space i j =
+				if j <= i then None
+				else if str.[j] == ' ' then Some j
+				else prev_space i (j - 1) in
+			let rec run i lines =
+				let j = min (i + len) (String.length str) in
+				if j <= i then lines
+				else
+					let j1, k =
+						if j == n then j, j
+						else
+							match prev_space i j with
+							| Some j1 when j - j1 <= max_space_adjust -> j1, j1 + 1
+							| _ -> j, j in
+					let line = String.sub str i (j1 - i) in
+					run k (line::lines) in
+			List.rev (run 0 [])
+
+		let show_confirm title text ui default f =
+			ui.do_popup ui begin fun view key ->
+				let continue =
+					Key.(match key with
+					| None -> true
+					| Some key ->
+						begin match key with
+						| End ->
+							f default;
+							false
+						| Yes ->
+							f true;
+							false
+						| No ->
+							f false;
+							false
+						| _ -> true
+						end
+					) in
+				D.Text_view.clear view;
+				D.Text_view.draw view ~style:ui.styles.Styles.popup_label (1, 1) title;
+				let dimx, dimy = D.Text_view.dim view in
+				let lines = wrap_string (dimx / 10) (dimx - 2) text in
+				List.iteri begin fun i line ->
+					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 3 + i) line
+				end lines;
+				D.Text_view.draw view ~style:ui.styles.Styles.popup_key (1, 4 + List.length lines) "yes/no?";
+				D.Text_view.refresh view;
+				continue
+			end
 
 		let show_list title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
 			let start_i = ref 0 in
@@ -268,26 +321,6 @@ module Make =
 				)
 			)
 
-		let wrap_string max_space_adjust len str =
-			let n = String.length str in
-			let rec prev_space i j =
-				if j <= i then None
-				else if str.[j] == ' ' then Some j
-				else prev_space i (j - 1) in
-			let rec run i lines =
-				let j = min (i + len) (String.length str) in
-				if j <= i then lines
-				else
-					let j1, k =
-						if j == n then j, j
-						else
-							match prev_space i j with
-							| Some j1 when j - j1 <= max_space_adjust -> j1, j1 + 1
-							| _ -> j, j in
-					let line = String.sub str i (j1 - i) in
-					run k (line::lines) in
-			List.rev (run 0 [])
-
 		let draw_status styles game_messages ui_messages view =
 			let clip_list len list =
 				let rec run len_left =
@@ -373,7 +406,9 @@ module Make =
 				Game.(match game.status with
 				| Playing -> ui.messages <- Mystery_nonexistance::ui.messages
 				| Lost Died -> ui.messages <- Dead::ui.messages
-				| Lost Left -> ui.messages <- Left::ui.messages
+				| Lost Left ->
+					ui.user_quit <- true;
+					ui.messages <- Left::ui.messages
 				)
 			| Some player ->
 				let at = player.Being.at in
@@ -400,8 +435,12 @@ module Make =
 			| Wait ->
 				do_cmd Action.Wait
 			| Quit ->
-				ui.user_quit <- true;
-				do_cmd Action.Quit
+				show_confirm "Quit" "Quit and kill this character?" ui false begin function
+					| true ->
+						ui.user_quit <- true;
+						do_cmd Action.Quit
+					| false -> ()
+				end
 			| Inventory ->
 				show_list "Inventory" string_of_thing_inv Being.(inv player) ~select:false ui begin fun _ ->
 					()
@@ -439,8 +478,17 @@ module Make =
 					end
 				end
 			| Up_stairs -> begin
-					if List.mem player.Being.at game.Game.region.Region.up_stairs then
-						do_cmd Action.(Take_stairs Up)
+					if List.mem player.Being.at game.Game.region.Region.up_stairs then begin
+						if game.Game.on_level > 0 then begin
+							do_cmd Action.(Take_stairs Up)
+						end else begin
+							show_confirm "Leave dungeon" "Leave the dungeon and give up?" ui false begin function
+								| true ->
+									do_cmd Action.(Take_stairs Up)
+								| false -> ()
+							end
+						end
+					end
 				end
 			| Down_stairs -> begin
 					if List.mem player.Being.at game.Game.region.Region.down_stairs then

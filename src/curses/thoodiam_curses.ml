@@ -75,6 +75,8 @@ let process_popup_input ch =
 		if ch == 27 || ch == 10 then Some End
 		else if ch == int_of_char '[' || ch == int_of_char ' ' then Some Page_down
 		else if ch == int_of_char ']' then Some Page_up
+		else if ch == int_of_char 'y' then Some Yes
+		else if ch == int_of_char 'n' then Some No
 		else begin
 			match Ch_map.get ch list_id_set with
 			| Some i ->
