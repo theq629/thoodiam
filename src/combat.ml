@@ -104,7 +104,7 @@ let calc_attack attacker weapon =
 				None
 		end attacker.Being.body.Thing.kind.Thing.Kind.equip_slots in
 	Roll.({
-		base = (Some "melee", Being.(attacker.skills.melee))::from_equip;
+		base = (Some "melee", Being.(attacker.skills.Skills.melee))::from_equip;
 		dice = [None, d1d20];
 	})
 
@@ -122,7 +122,7 @@ let calc_evasion defender =
 				None
 		end defender.Being.body.Thing.kind.Thing.Kind.equip_slots in
 	Roll.({
-		base = (Some "evasion", Being.(defender.skills.melee))::from_equip;
+		base = (Some "evasion", Being.(defender.skills.Skills.melee))::from_equip;
 		dice = [None, d1d20];
 	})
 

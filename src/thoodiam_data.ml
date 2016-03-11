@@ -118,8 +118,8 @@ module Thing_kinds =
 				~tile:'/'
 				~name:"battle axe"
 				~weight:5.
-				~in_combat:In_combat.(make ~accuracy:(-4) ())
-				~melee:Weapon.(make ~damage:(Dice.make 4 4) ())
+				~in_combat:In_combat.(make ~accuracy:(-4) ~evasion:1 ())
+				~melee:Weapon.(make ~damage:(Dice.make 5 5) ())
 				()
 
 		let quarterstaff =
@@ -135,6 +135,15 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"war hammer"
+				~weight:5.
+				~in_combat:In_combat.(make ~accuracy:(-2) ())
+				~melee:Weapon.(make ~damage:(Dice.make 4 1) ())
+				()
+
+		let great_hammer =
+			make
+				~tile:'/'
+				~name:"great hammer"
 				~weight:5.
 				~in_combat:In_combat.(make ~accuracy:(-2) ())
 				~melee:Weapon.(make ~damage:(Dice.make 4 1) ())
@@ -196,6 +205,29 @@ module Thing_kinds =
 						~str:7
 						~dex:6
 						~con:10
+						~def_skills:Skills.(make
+							~melee:10
+							~evasion:7
+						())
+					())
+				()
+
+		let kobold =
+			make
+				~tile:'g'
+				~name:"goblin"
+				~weight:70.
+				~visual_priority:true
+				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~bodyable:Bodyable.(make
+						~vision:8
+						~str:2
+						~dex:4
+						~con:2
+						~def_skills:Skills.(make
+							~melee:6
+							~evasion:4
+						())
 					())
 				()
 
@@ -207,10 +239,14 @@ module Thing_kinds =
 				~visual_priority:true
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
-						~vision:8
+						~vision:6
 						~str:2
-						~dex:3
+						~dex:2
 						~con:2
+						~def_skills:Skills.(make
+							~melee:4
+							~evasion:4
+						())
 					())
 				()
 
@@ -223,9 +259,191 @@ module Thing_kinds =
 				~equip_slots:Equip_slots.[melee_weapon; armour]
 				~bodyable:Bodyable.(make
 						~vision:6
-						~str:3
-						~dex:2
+						~str:4
+						~dex:3
 						~con:4
+						~def_skills:Skills.(make
+							~melee:6
+							~evasion:4
+						())
+					())
+				()
+
+		let ogre =
+			make
+				~tile:'O'
+				~name:"orge"
+				~weight:150.
+				~visual_priority:true
+				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~bodyable:Bodyable.(make
+						~vision:8
+						~str:6
+						~dex:3
+						~con:6
+						~def_skills:Skills.(make
+							~melee:6
+							~evasion:4
+						())
+					())
+				()
+
+		let giant =
+			make
+				~tile:'H'
+				~name:"giant"
+				~weight:200.
+				~visual_priority:true
+				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~bodyable:Bodyable.(make
+						~vision:10
+						~str:8
+						~dex:4
+						~con:8
+						~def_skills:Skills.(make
+							~melee:8
+							~evasion:4
+						())
 					())
 				()
 	end
+
+module Level_spec =
+	struct
+		type t =
+			{
+				weapon_kinds : (float * Thing.Kind.t) array;
+				armour_kinds : (float * Thing.Kind.t) array;
+				enemy_kinds : (float * Thing.Kind.t) array;
+			}
+
+		let make
+			?(weapon_kinds=[||])
+			?(armour_kinds=[||])
+			?(enemy_kinds=[||])
+			()
+			=
+			{ weapon_kinds; armour_kinds; enemy_kinds }
+	end
+
+let level_specs =
+	let open Thing_kinds in
+	[|
+		Level_spec.(make
+			~weapon_kinds:[|
+					2., dagger;
+					1., short_sword;
+					1., quarterstaff;
+				|]
+			~armour_kinds:[|
+					1., leather_armour;
+				|]
+			~enemy_kinds:[|
+					1., goblin;
+				|]
+			()
+		);
+		Level_spec.(make
+			~weapon_kinds:[|
+					2., dagger;
+					2., short_sword;
+					2., quarterstaff;
+					1., long_sword;
+					1., spear;
+					1., battle_axe;
+					1., war_hammer;
+				|]
+			~armour_kinds:[|
+					1., robe;
+					2., leather_armour;
+					1., studded_leather_armour;
+				|]
+			~enemy_kinds:[|
+					1., goblin;
+					1., kobold;
+				|]
+			()
+		);
+		Level_spec.(make
+			~weapon_kinds:[|
+					2., dagger;
+					2., short_sword;
+					2., quarterstaff;
+					2., long_sword;
+					2., spear;
+					2., battle_axe;
+					2., war_hammer;
+					1., bastard_sword;
+				|]
+			~armour_kinds:[|
+					2., leather_armour;
+					2., studded_leather_armour;
+					1., mail_corslet;
+				|]
+			~enemy_kinds:[|
+					2., goblin;
+					2., kobold;
+					1., orc;
+				|]
+			()
+		);
+		Level_spec.(make
+			~weapon_kinds:[|
+					2., dagger;
+					2., short_sword;
+					2., quarterstaff;
+					2., long_sword;
+					2., spear;
+					2., battle_axe;
+					2., war_hammer;
+					2., bastard_sword;
+					1., great_sword;
+					1., great_axe;
+					1., great_spear;
+					1., great_hammer;
+				|]
+			~armour_kinds:[|
+					2., leather_armour;
+					2., studded_leather_armour;
+					2., mail_corslet;
+					1., mail_hauberk;
+				|]
+			~enemy_kinds:[|
+					2., goblin;
+					2., kobold;
+					2., orc;
+					1., ogre;
+				|]
+			()
+		);
+		Level_spec.(make
+			~weapon_kinds:[|
+					1., dagger;
+					1., short_sword;
+					1., quarterstaff;
+					1., long_sword;
+					1., spear;
+					1., battle_axe;
+					1., war_hammer;
+					1., bastard_sword;
+					1., great_sword;
+					1., great_axe;
+					1., great_spear;
+					1., great_hammer;
+				|]
+			~armour_kinds:[|
+					1., leather_armour;
+					1., studded_leather_armour;
+					1., mail_corslet;
+					1., mail_hauberk;
+				|]
+			~enemy_kinds:[|
+					2., goblin;
+					2., kobold;
+					2., orc;
+					2., ogre;
+					1., giant;
+				|]
+			()
+		);
+	|]

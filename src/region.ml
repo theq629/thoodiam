@@ -89,16 +89,17 @@ let place_being region being at =
 	being.Being.at <- at;
 	found
 
-let init_being region body_kind skills at =
+let init_being region body_kind at =
 	let being_body = Thing.make body_kind in
 	let scale_stat base scale = 0.5 +. base *. 1.2**(float_of_int scale) in
-	let max_hp, can_carry =
+	let max_hp, can_carry, skills =
 		match being_body.Thing.kind.Thing.Kind.bodyable with
-		| None -> 0, 0.
+		| None -> 0, 0., Skills.default
 		| Some b ->
 			Bodyable.(
 				round_to_int (scale_stat 10. b.con),
-				scale_stat 20. b.str
+				scale_stat 20. b.str,
+				b.def_skills
 			) in
 	let being = Being.({
 			at = at;

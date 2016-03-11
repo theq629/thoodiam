@@ -33,35 +33,39 @@ let for_clear_points ?max_tries map is_clear num rng f =
 				run (t + 1) n in
 	run 0 num
 
-let rand_weapon_kinds = Thing_kinds.([|dagger; short_sword; long_sword; bastard_sword; great_sword; spear; great_sword; glaive; battle_axe; great_axe; quarterstaff; war_hammer|])
-let rand_armour_kinds = Thing_kinds.([|leather_armour; studded_leather_armour; mail_corslet; mail_hauberk|])
-let rand_thing_kinds = Array.append rand_weapon_kinds rand_armour_kinds
+let rand_from_array = Rng.Empirical.array_elt ~weight:fst ~value:snd
 
-let make_stuff region rng num is_clear =
+let make_stuff region num is_clear use_kinds rng =
+	let rand_kind = rand_from_array use_kinds in
 	for_clear_points region.Region.map is_clear num rng begin fun p ->
-		let kind = Rng.Uniform.array_elt rand_thing_kinds rng in
+		let kind = rand_kind rng in
 		let thing = Thing.make kind in
 		Region.add_thing region p thing
 	end
 
-let equip_being being rng =
-	let weapon = Thing.make (Rng.Uniform.array_elt rand_weapon_kinds rng) in
-	let armour = Thing.make (Rng.Uniform.array_elt rand_armour_kinds rng) in
-	being.Being.equip <- [
-			Equip_slots.melee_weapon, weapon;
-			Equip_slots.armour, armour
-		]
-
-let make_creatures region rng num is_clear =
-	let kinds = Thing_kinds.([|
-			goblin, Being.({ melee = 8; evasion = 6 });
-			orc, Being.({ melee = 6; evasion = 8 })
-		|]) in
+let make_creatures region num is_clear use_being_kind use_weapon_kinds use_armour_kinds rng =
+	let rand_kind = rand_from_array use_being_kind in
+	let rand_weapon = rand_from_array use_weapon_kinds in
+	let rand_armour = rand_from_array use_armour_kinds in
 	for_clear_points region.Region.map is_clear num rng begin fun p ->
-		let kind, skills = Rng.Uniform.array_elt kinds rng in
-		let being = Region.init_being region kind skills p in
-		equip_being being rng
+		let kind = rand_kind rng in
+		let being = Region.init_being region kind p in
+		being.Being.equip <- [
+				Equip_slots.melee_weapon, Thing.make (rand_weapon rng);
+				Equip_slots.armour, Thing.make (rand_armour rng)
+			]
 	end
+
+let make_player region is_clear being_kind use_weapon_kinds use_armour_kinds rng =
+	let rand_weapon = rand_from_array use_weapon_kinds in
+	let rand_armour = rand_from_array use_armour_kinds in
+	let at = choose_init_pos region.Region.map is_clear rng in
+	let player = Region.init_being region being_kind at in
+	player.Being.equip <- [
+			Equip_slots.melee_weapon, Thing.make (rand_weapon rng);
+			Equip_slots.armour, Thing.make (rand_armour rng)
+		];
+	player
 
 let is_clear map p =
 	Region.(
@@ -70,7 +74,7 @@ let is_clear map p =
 		&& not (List.exists (fun t -> t.Thing.kind.Thing.Kind.visual_priority) cell.Cell.things)
 	)
 
-let make_region map_rng things_rng =
+let make_region spec map_rng things_rng =
 	let map_dimx, map_dimy as map_dim = 100, 100 in
 	let map_area = map_dimx * map_dimy in
 	let raw_map = Mapgen.Cellular.(gen
@@ -86,23 +90,21 @@ let make_region map_rng things_rng =
 				| Mapgen.Wall -> Terrains.wall in
 			Region.Cell.make terrain
 		end in
-	Region.init map begin fun region ->
-		make_stuff region things_rng (map_area / 2000) is_clear;
-		make_creatures region things_rng (map_area / 2000) is_clear
-	end
+	Level_spec.(
+		let all_things = Array.append spec.weapon_kinds spec.armour_kinds in
+		Region.init map begin fun region ->
+			make_stuff region (map_area / 2000) is_clear all_things things_rng;
+			make_creatures region (map_area / 2000) is_clear spec.enemy_kinds spec.weapon_kinds spec.armour_kinds things_rng
+		end
+	)
 
 let init map_seed things_seed game_seed =
 	let map_rng = Random.State.make [| map_seed |] in
 	let things_rng = Random.State.make [| things_seed |] in
 	let game_rng = Random.State.make [| game_seed |] in
-	let player_skills =
-		Game_data.Being.({
-			melee = 10;
-			evasion = 7;
-		}) in
-	let region = make_region map_rng things_rng in
+	let level_spec = level_specs.(0) in
+	let region = make_region level_spec map_rng things_rng in
 	let game = Game.make region game_rng in
-	let player = Region.init_being region Thing_kinds.human player_skills (choose_init_pos region.Region.map is_clear things_rng) in
-	equip_being player things_rng;
+	let player = make_player region is_clear Thing_kinds.human level_spec.Level_spec.weapon_kinds level_spec.Level_spec.armour_kinds things_rng in
 	Game.set_player game player;
 	game

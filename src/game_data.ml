@@ -1,5 +1,6 @@
 module Rng = Variates.Make(Variates.Stdlib_source)
 module Vec = Vectors.TwoD
+
 module Map = Tilemap.Square
 module Fov = Fov_adammil
 
@@ -78,6 +79,28 @@ module Armour =
 			{ protection }
 	end
 
+module Skills =
+	struct
+		type t =
+			{
+				melee : int;
+				evasion : int;
+			}
+
+		let default =
+			{
+				melee = 0;
+				evasion = 0;
+			}
+
+		let make
+			?(melee=0)
+			?(evasion=0)
+			()
+			=
+			{ melee; evasion }
+	end
+
 module Bodyable =
 	struct
 		type t =
@@ -86,6 +109,7 @@ module Bodyable =
 				str : int;
 				dex : int;
 				con : int;
+				def_skills : Skills.t;
 			}
 
 		let make
@@ -93,9 +117,10 @@ module Bodyable =
 			?(str=0)
 			?(dex=0)
 			?(con=0)
+			?(def_skills=Skills.default)
 			()
 			=
-			{ vision; str; dex; con }
+			{ vision; str; dex; con; def_skills }
 	end
 
 module Equip_slot =
@@ -204,16 +229,10 @@ module Terrain =
 
 module Being =
 	struct
-		type skills =
-			{
-				melee : int;
-				evasion : int;
-			}
-
 		type t =
 			{
 				body : Thing.t;
-				skills : skills;
+				skills : Skills.t;
 				mutable at : Map.Location.t;
 				mutable inv : Thing.t list;
 				mutable equip : (Equip_slot.t * Thing.t) list;
