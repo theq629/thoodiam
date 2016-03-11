@@ -135,19 +135,19 @@ let debounce timeout callback =
 		timer := Some (Dom_html.window##setTimeout (callback, timeout));
 		Js._true
 
-let handle_resize ui () =
+let handle_resize disp () =
 	Window.(
-		ui.root.pos <- (ui.container_elt##clientLeft, ui.container_elt##clientTop);
-		ui.root.dim <- (ui.container_elt##clientWidth, ui.container_elt##clientHeight);
-		layout ui.root
+		disp.root.pos <- (disp.container_elt##clientLeft, disp.container_elt##clientTop);
+		disp.root.dim <- (disp.container_elt##clientWidth, disp.container_elt##clientHeight);
+		layout disp.root
 	);
-	Watcher_set.trigger ui.refresh_watchers ui
+	Watcher_set.trigger disp.refresh_watchers disp
 
-let remove_view_elt ui view_elt =
-	Dom.removeChild ui.container_elt view_elt
+let remove_view_elt disp view_elt =
+	Dom.removeChild disp.container_elt view_elt
 
 let init container_elt =
-	let ui =
+	let disp =
 		{
 			container_elt = container_elt;
 			root = Window.make_dummy ();
@@ -155,24 +155,24 @@ let init container_elt =
 			refresh_watchers = Watcher_set.make ();
 			key_handler = None;
 		} in
-	handle_resize ui ();
-	Dom_html.window##onresize <- Dom_html.handler (debounce 100. (Js.wrap_callback (handle_resize ui)));
-	ui
+	handle_resize disp ();
+	Dom_html.window##onresize <- Dom_html.handler (debounce 100. (Js.wrap_callback (handle_resize disp)));
+	disp
 
-let close ui =
+let close disp =
 	List.iter begin fun view_elt ->
-		remove_view_elt ui view_elt
-	end ui.view_elts
+		remove_view_elt disp view_elt
+	end disp.view_elts
 
-let root ui =
-	ui.root
+let root disp =
+	disp.root
 
-let on_refresh ui f =
-	ignore (Watcher_set.add ui.refresh_watchers f)
+let on_refresh disp f =
+	ignore (Watcher_set.add disp.refresh_watchers f)
 
-let input_loop ui f =
+let input_loop disp f =
 	let on_key event =
-		begin match ui.key_handler with
+		begin match disp.key_handler with
 		| None -> ()
 		| Some f ->
 			let key_code = event##keyCode in
@@ -180,7 +180,7 @@ let input_loop ui f =
 			f (is_shift, key_code)
 		end;
 		Js._true in
-	ui.key_handler <- Some f;
+	disp.key_handler <- Some f;
 	ignore (Dom_html.addEventListener Dom_html.document Dom_html.Event.keydown (Dom_html.handler on_key) Js._false)
 
 module Colour =
@@ -211,7 +211,7 @@ module Base_view =
 
 		type t =
 			{
-				ui : disp;
+				disp : disp;
 				win : Window.t;
 				elt : Dom_html.canvasElement Js.t;
 				con : Dom_html.canvasRenderingContext2D Js.t;
@@ -248,7 +248,7 @@ module Base_view =
 				);
 				apply_settings view
 			| None ->
-				remove_view_elt view.ui view.elt
+				remove_view_elt view.disp view.elt
 
 		let config ?(font_pt=12) ?(font_name="monospace") ?(fg=Colour.of_string "#000000") ?(bg=Colour.of_string "#ffffff") view =
 			view.font <- Js.string (Printf.sprintf "%ipt %s" font_pt font_name);
@@ -258,13 +258,13 @@ module Base_view =
 			view.foreground <- fg;
 			view.background <- bg
 
-		let make ui win =
+		let make disp win =
 			let canvas = Dom_html.createCanvas Dom_html.document in
-			Dom.appendChild ui.container_elt canvas;
+			Dom.appendChild disp.container_elt canvas;
 			canvas##style##position <- Js.string "absolute";
 			let con = canvas##getContext (Dom_html._2d_) in
 			let view = {
-					ui = ui;
+					disp = disp;
 					win = win;
 					elt = canvas;
 					con = con;
@@ -282,14 +282,14 @@ module Base_view =
 			view.layouter (Some view.win);
 			Js.Opt.iter
 				(Dom.CoerceTo.element canvas)
-				(fun elt -> ui.view_elts <- elt::ui.view_elts);
+				(fun elt -> disp.view_elts <- elt::disp.view_elts);
 			view
 
-		let remove ui view =
+		let remove disp view =
 			Js.Opt.iter
 				(Dom.CoerceTo.element view.elt)
-				(fun elt -> ui.view_elts <- List.filter (fun e -> e != elt) ui.view_elts);
-			remove_view_elt ui view.elt;
+				(fun elt -> disp.view_elts <- List.filter (fun e -> e != elt) disp.view_elts);
+			remove_view_elt disp view.elt;
 			Window.(
 				view.win.view_layouts <- List.filter (fun vl -> vl != view.layouter) view.win.view_layouts
 			)
