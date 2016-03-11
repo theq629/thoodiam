@@ -82,7 +82,6 @@ let process_popup_input ch =
 			| Some i ->
 				Some (List_item i)
 			| None ->
-				Printf.eprintf "unknown key %i\n" ch;
 				None
 		end
 	)
