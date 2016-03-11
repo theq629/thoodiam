@@ -68,7 +68,7 @@ module Window =
 
 		let make disp parent (x, y) (dimx, dimy) =
 			let cwin = Curses.newwin dimy dimx (parent.y + y) (parent.x + x) in
-			Curses.refresh ();
+			ignore (Curses.refresh ());
 			prepare cwin;
 			{
 				cwin = cwin;
@@ -92,7 +92,7 @@ module Window =
 			let cwin2 = Curses.newwin dimy2 dimx2 y2 x2 in
 			prepare cwin1;
 			prepare cwin2;
-			Curses.refresh ();
+			ignore (Curses.refresh ());
 			{ cwin = cwin1; x = x1; y = y1 }, { cwin = cwin2; x = x2; y = y2 }
 
 		let remove win =
@@ -216,7 +216,7 @@ module Base_view =
 			Style.apply_attrs view.win.cwin view.bg;
 			for x = 0 to dimx - 1 do
 				for y = 0 to dimy - 1 do
-					Curses.mvwaddch view.win.cwin y x (int_of_char ' ')
+					ignore (Curses.mvwaddch view.win.cwin y x (int_of_char ' '))
 				done
 			done
 
