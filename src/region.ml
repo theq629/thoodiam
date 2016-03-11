@@ -97,8 +97,8 @@ let init_being region body_kind at =
 		| None -> 0, 0., Skills.default
 		| Some b ->
 			Bodyable.(
-				round_to_int (scale_stat 10. b.con),
-				scale_stat 20. b.str,
+				round_to_int (scale_stat 2. b.con),
+				scale_stat 2. b.str,
 				b.def_skills
 			) in
 	let being = Being.({
