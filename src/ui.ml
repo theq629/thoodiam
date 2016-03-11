@@ -79,6 +79,24 @@ module Make =
 			let s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" in
 			Array.init (String.length s) (fun i -> String.make 1 s.[i])
 
+		let make_intro_help_text input_to_string game_key_bindings popup_key_bindings =
+			let uniq = List.fold_left (fun ys y -> if List.mem y ys then ys else y::ys) [] in
+			let to_str =
+				function
+				| None -> "{no key}"
+				| Some i -> input_to_string i in
+			let help_keys = List.filter_map begin fun b ->
+					match Key_bindings.get_inv b Key.Help with
+					| Some _ as oi -> Some (to_str oi)
+					| None -> None
+				end [game_key_bindings; popup_key_bindings] in
+			[
+				Printf.sprintf "press %s to continue"
+					(to_str (Key_bindings.get_inv popup_key_bindings Key.Finish));
+				Printf.sprintf "press %s to get help"
+					(English.strings_list_bare "or" "{no key}" (uniq help_keys));
+			]
+
 		type message =
 			| Mystery_nonexistance
 			| Dead
@@ -152,7 +170,7 @@ module Make =
 					run k (line::lines) in
 			List.rev (run 0 [])
 
-		let show_info ?(can_finish=true) ?(on_finish=fun _ -> ()) title text ui =
+		let show_info ?(can_finish=true) ?(on_finish=fun _ -> ()) ?(extra_text=[]) title text ui =
 			ui.do_popup ui begin fun view key ->
 				let continue =
 					Key.(match key with
@@ -169,10 +187,13 @@ module Make =
 				D.Text_view.draw view ~style:ui.styles.Styles.popup_label (1, 1) title;
 				let dimx, dimy = D.Text_view.dim view in
 				let lines = wrap_string (dimx / 10) (dimx - 2) text in
+				let n = List.length lines in
 				List.iteri begin fun i line ->
 					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 3 + i) line
 				end lines;
-				D.Text_view.draw view ~style:ui.styles.Styles.popup_key (1, 4 + List.length lines) "continue";
+				List.iteri begin fun i line ->
+					D.Text_view.draw view ~style:ui.styles.Styles.popup_key (1, 4 + n + i) line
+				end extra_text;
 				D.Text_view.refresh view;
 				continue
 			end

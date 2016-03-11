@@ -91,8 +91,8 @@ let popup_key_bindings =
 		end (Ch_map.empty, 0) Ui.letter_list_ids in
 	Key_bindings.(Ui.Key.(
 		let b = make () in
-		bind b 27 Finish;
 		bind b 10 Finish;
+		bind b 27 Finish;
 		bind b (int_of_char '[') Page_up;
 		bind b (int_of_char ']') Page_down;
 		bind b (int_of_char ' ') Page_down;
@@ -150,7 +150,7 @@ let run map_seed things_seed game_seed skip_welcome =
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui ui_styles extra_styles disp in
 		if not skip_welcome then
-			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ui;
+			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text char_int_to_string game_key_bindings popup_key_bindings) ui;
 		while Game.(game.status == Playing) do
 			Ui.draw ui disp game;
 			match Key_bindings.get game_key_bindings (Disp.get_key disp) with

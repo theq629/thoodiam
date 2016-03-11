@@ -26,3 +26,13 @@ let strings_list list =
 	| _ ->
 		let num = List.length list in
 		String.concat ", " (List.mapi (fun i s -> (if i < num - 1 then "" else "and ") ^ add_article s) list)
+
+let strings_list_bare sep nothing list =
+	match list with
+	| [] -> nothing
+	| [s] -> s
+	| [s1; s2] ->
+		String.concat (" " ^ sep ^ " ") [s1; s2]
+	| _ ->
+		let num = List.length list in
+		String.concat ", " (List.mapi (fun i s -> (if i < num - 1 then "" else sep ^ " ") ^ s) list)

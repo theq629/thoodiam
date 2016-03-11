@@ -101,8 +101,8 @@ let popup_key_bindings =
 		end (Ch_map.empty, 0) Ui.letter_list_ids in
 	Key_bindings.(Ui.Key.(
 		let b = make () in
-		bind b (false, 27) Finish;
 		bind b (false, 13) Finish;
+		bind b (false, 27) Finish;
 		bind b (false, 219) Page_up;
 		bind b (false, 221) Page_down;
 		bind b (false, 32) Page_down;
@@ -191,7 +191,7 @@ let run map_seed things_seed game_seed skip_welcome =
 	end;
 	let show_welcome () =
 		if not skip_welcome then
-			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ui in
+			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text input_to_string game_key_bindings popup_key_bindings) ui in
 	show_welcome ();
 	Disp.input_loop disp begin fun key ->
 		update (Some key);

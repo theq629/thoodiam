@@ -71,7 +71,7 @@ let other bnds inp_str outp_str f =
 
 let iter f bnds =
 	List.iter begin fun inp ->
-		f inp (Hashtbl.find bnds.table)
+		f inp (Hashtbl.find bnds.table inp)
 	end bnds.list
 
 let get bnds inp =
@@ -80,6 +80,14 @@ let get bnds inp =
 		match bnds.other with
 		| None -> None
 		| Some (_, _, f) -> f inp
+
+let get_inv bnds want_outp =
+	let found = ref None in
+	iter begin fun inp outp ->
+		if outp = want_outp then
+			found := Some inp
+	end bnds;
+	!found
 
 let to_list bnds =
 	List.map begin fun inp ->
