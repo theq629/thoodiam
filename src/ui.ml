@@ -35,7 +35,7 @@ module Make =
 					| Drop
 					| Page_up
 					| Page_down
-					| End
+					| Finish
 					| Yes
 					| No
 					| List_item of int
@@ -43,6 +43,33 @@ module Make =
 					| Up_stairs
 					| Wait
 					| Quit
+					| Help
+
+				let to_string =
+					function
+					| N -> "north"
+					| S -> "south"
+					| E -> "east"
+					| W -> "west"
+					| NE -> "north east"
+					| NW -> "north west"
+					| SE -> "south east"
+					| SW -> "south west"
+					| Pick_up -> "pick up"
+					| Inventory -> "inventory"
+					| Equipment -> "equipment"
+					| Drop -> "drop"
+					| Page_up -> "page up"
+					| Page_down -> "page down"
+					| Finish -> "finish"
+					| Yes -> "yes"
+					| No -> "no"
+					| List_item i -> Printf.sprintf "list item %i" i
+					| Down_stairs -> "down stairs"
+					| Up_stairs -> "up stairs"
+					| Wait -> "wait"
+					| Quit -> "quit"
+					| Help -> "help"
 			end
 
 		let letter_list_ids =
@@ -56,15 +83,16 @@ module Make =
 			| Won
 			| See_here of Thing.t list
 
-		type t =
+		type 'a t =
 			{
 				panel : D.Text_view.t;
 				status : D.Text_view.t;
 				map : D.Chars_view.t;
-				do_popup : t -> (D.Text_view.t -> Key.t option -> bool) -> unit;
+				do_popup : ?show_help:bool -> 'a t -> (D.Text_view.t -> Key.t option -> bool) -> unit;
 				styles : Styles.t;
 				list_ids : string array;
 				mutable messages : message list;
+				input_to_string : 'a -> string;
 			}
 
 		let join_opt_strings opt_strs =
@@ -126,7 +154,7 @@ module Make =
 				let continue =
 					Key.(match key with
 					| None -> true
-					| Some End | Some Page_down ->
+					| Some Finish | Some Page_down ->
 						if can_finish then begin
 							on_finish ();
 							false
@@ -153,7 +181,7 @@ module Make =
 					| None -> true
 					| Some key ->
 						begin match key with
-						| End ->
+						| Finish ->
 							f default;
 							false
 						| Yes ->
@@ -177,12 +205,12 @@ module Make =
 				continue
 			end
 
-		let show_list title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
+		let show_list ?(show_help) title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
 			let start_i = ref 0 in
 			let sel = ref [] in
 			let len = List.length list in
 			let max_id_len = Array.fold_left (fun m k -> max m (String.length k)) 0 ui.list_ids in
-			ui.do_popup ui begin fun view key ->
+			ui.do_popup ?show_help ui begin fun view key ->
 				let page_size = min (Array.length ui.list_ids) (let _, dimy = D.Text_view.dim view in dimy - 3) in
 				let continue = ref true in
 				let go () =
@@ -195,7 +223,7 @@ module Make =
 				| None -> ()
 				| Some key ->
 					begin match key with
-					| End ->
+					| Finish ->
 						finish ()
 					| Page_up ->
 						start_i := max 0 (!start_i - page_size)
@@ -238,6 +266,13 @@ module Make =
 					D.Text_view.draw view ~style:ui.styles.Styles.popup_text (1, 1 + offset_y + page_size) "...";
 				D.Text_view.refresh view;
 				!continue
+			end
+
+		let show_key_bindings key_bindings ui =
+			let strs =
+				Key_bindings.to_strings_list ui.input_to_string Key.to_string key_bindings in
+			show_list ~show_help:false "Help" (fun (i, o) -> Printf.sprintf "%s -> %s" i o) ~select:false strs ui begin fun _ ->
+				()
 			end
 
 		let string_of_game_message =
@@ -382,7 +417,7 @@ module Make =
 				done
 			done
 
-		let make ~panel ~status ~map ~do_popup ~styles ~list_ids =
+		let make ~panel ~status ~map ~do_popup ~styles ~list_ids ~input_to_string =
 			{
 				panel = panel;
 				status = status;
@@ -391,6 +426,7 @@ module Make =
 				styles = styles;
 				list_ids = list_ids;
 				messages = [];
+				input_to_string = input_to_string;
 			}
 
 		let draw ui disp game =
@@ -422,7 +458,7 @@ module Make =
 				if not (List.is_empty things_here) then
 					ui.messages <- (See_here things_here) :: ui.messages
 
-		let handle_player_input game player ui key do_cmd =
+		let handle_player_input game player key_bindings ui key do_cmd =
 			let move_or_attack dir =
 				let p1 = Vec.(player.Being.at + Direction.to_vec dir) in
 				if List.exists (fun b -> b.Being.at = p1) Game.(game.region.Region.beings) then do_cmd Action.(Melee_attack dir)
@@ -438,6 +474,8 @@ module Make =
 			| SW -> move_or_attack Direction.SW
 			| Wait ->
 				do_cmd Action.Wait
+			| Help ->
+				show_key_bindings key_bindings ui
 			| Quit ->
 				show_confirm "Quit" "Quit and kill this character?" ui false begin function
 					| true ->
@@ -500,7 +538,7 @@ module Make =
 			| _ -> ()
 			)
 
-		let handle_input game ui key do_cmd =
+		let handle_input game key_bindings ui key do_cmd =
 			match game.Game.player with
 			| None ->
 				begin match key with
@@ -508,5 +546,5 @@ module Make =
 				| _ -> ()
 				end
 			| Some player ->
-				handle_player_input game player ui key do_cmd
+				handle_player_input game player key_bindings ui key do_cmd
 	end

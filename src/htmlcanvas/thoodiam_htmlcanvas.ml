@@ -44,81 +44,110 @@ let make_styles disp =
 		})) in
 	ui_styles, extra_styles
 
-let log_unknown_key key =
-	let is_shift, key_code = key in
-	Printf.eprintf "unknown key %s%i\n" (if is_shift then "shift+" else "") key_code
+let char_int_to_string =
+	let special =
+		[
+			38, "<up>";
+			40, "<down>";
+			37, "<left>";
+			39, "<right>";
+			190, ".";
+			188, "<";
+			219, "[";
+			221, "]";
+			191, "/";
+		] in
+	fun ch ->
+		let ch = if 65 <= ch && ch <= 90 then ch + 32 else ch in
+		try List.assq ch special
+		with Not_found -> Key_bindings.char_int_to_string ch
 
-let process_input key =
-	Ui.Key.(
-		if key = (true, 81) then Some Quit
-		else if key = (false, 190) then Some Wait
-		else if key = (false, 38) || key = (false, 75) then Some N
-		else if key = (false, 40) || key = (false, 74) then Some S
-		else if key = (false, 37) || key = (false, 72) then Some W
-		else if key = (false, 39) || key = (false, 76) then Some E
-		else if key = (false, 89) then Some NW
-		else if key = (false, 85) then Some NE
-		else if key = (false, 66) then Some SW
-		else if key = (false, 78) then Some SE
-		else if key = (false, 71) then Some Pick_up
-		else if key = (false, 68) then Some Drop
-		else if key = (false, 73) then Some Inventory
-		else if key = (false, 69) then Some Equipment
-		else if key = (true, 188) then Some Up_stairs
-		else if key = (true, 190) then Some Down_stairs
-		else begin
-			log_unknown_key key;
-			None
-		end
-	)
+let input_to_string (is_shift, key_code) =
+	(if is_shift then "shift+" else "")
+	^ (char_int_to_string key_code)
 
-let process_popup_input key =
+let game_key_bindings =
+	Key_bindings.(Ui.Key.(
+		let b = make () in
+		bind b (false, 38) N;
+		bind b (false, 40) S;
+		bind b (false, 37) W;
+		bind b (false, 39) E;
+		bind b (false, 75) N;
+		bind b (false, 74) S;
+		bind b (false, 72) W;
+		bind b (false, 76) E;
+		bind b (false, 89) NW;
+		bind b (false, 85) NE;
+		bind b (false, 66) SW;
+		bind b (false, 78) SE;
+		bind b (false, 190) Wait;
+		bind b (false, 71) Pick_up;
+		bind b (false, 73) Inventory;
+		bind b (false, 69) Equipment;
+		bind b (false, 68) Drop;
+		bind b (true, 188) Up_stairs;
+		bind b (true, 190) Down_stairs;
+		bind b (true, 81) Quit;
+		bind b (true, 191) Help;
+		b
+	))
+
+let popup_key_bindings =
 	let module Ch_map = Map.Make(struct type t = int;; let compare = compare;; end) in
 	let list_id_set, _ =
 		Array.fold_left begin fun (m, i) str ->
 			Ch_map.add (int_of_char str.[0]) i m, i + 1
 		end (Ch_map.empty, 0) Ui.letter_list_ids in
-	Ui.Key.(
-		if key = (false, 27) || key = (false, 13) then Some End
-		else if key = (false, 32) || key = (false, 221) then Some Page_down
-		else if key = (false, 219) then Some Page_up
-		else if key = (false, 89) then Some Yes
-		else if key = (false, 78) then Some No
-		else begin
-			let is_shift, key_code = key in
-			let use_key_code =
-				key_code
-				+ if is_shift && key_code >= 65 && key_code <= 90 then 0 else 32 in
-			match Ch_map.get use_key_code list_id_set with
-			| Some i ->
-				Some (List_item i)
-			| None ->
-				log_unknown_key key;
-				None
-		end
-	)
+	Key_bindings.(Ui.Key.(
+		let b = make () in
+		bind b (false, 27) Finish;
+		bind b (false, 13) Finish;
+		bind b (false, 219) Page_up;
+		bind b (false, 221) Page_down;
+		bind b (false, 32) Page_down;
+		bind b (false, 89) Yes;
+		bind b (false, 78) No;
+		other b "[a-zA-Z]" "list item" begin fun (is_shift, key_code) ->
+				let use_key_code =
+					key_code
+					+ if is_shift && key_code >= 65 && key_code <= 90 then 0 else 32 in
+				match Ch_map.get use_key_code list_id_set with
+				| Some i ->
+					Some (List_item i)
+				| None ->
+					None
+			end;
+		bind b (true, 191) Help;
+		b
+	))
 
 let make_ui ui_styles extra_styles disp update_queue =
 	let root = Disp.root disp in
 	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.15 in
 	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.8 in
-	let do_popup ui f =
+	let do_popup ?(show_help=true) ui f =
 		let win = Disp.Window.make disp map_win (0, 0) (Disp.Window.dim map_win) in
 		let view = Disp.Text_view.make disp win in
 		Disp.Text_view.config ~bg:extra_styles.Styles.popup_bg view;
 		let update key =
-			if f view (Opt.flat_map process_popup_input key) then ()
-			else begin
-				update_queue :=
-					begin match !update_queue with
-					| u::u1::us ->
-						u1 None;
-						u1::us 
-					| [u] -> []
-					| [] -> []
-					end;
-				Disp.Window.remove win
-			end in
+			let ui_key = Opt.flat_map (Key_bindings.get popup_key_bindings) key in
+			match ui_key with
+			| Some Ui.Key.Help when show_help ->
+				Ui.show_key_bindings popup_key_bindings ui
+			| _ ->
+				if f view ui_key then ()
+				else begin
+					update_queue :=
+						begin match !update_queue with
+						| u::u1::us ->
+							u1 None;
+							u1::us 
+						| [u] -> []
+						| [] -> []
+						end;
+					Disp.Window.remove win
+				end in
 		update_queue := update :: !update_queue;
 		update None in
 	let ui = Ui.make
@@ -127,7 +156,8 @@ let make_ui ui_styles extra_styles disp update_queue =
 		~map:(Disp.Chars_view.make disp map_win)
 		~styles:ui_styles
 		~list_ids:Ui.letter_list_ids
-		~do_popup:do_popup in
+		~do_popup:do_popup
+		~input_to_string:input_to_string in
 	Disp.Text_view.config ~bg:extra_styles.Styles.panel_bg ui.Ui.panel;
 	Disp.Text_view.config ~bg:extra_styles.Styles.status_bg ui.Ui.status;
 	Disp.Chars_view.config ~bg:extra_styles.Styles.map_bg ui.Ui.map;
@@ -135,11 +165,11 @@ let make_ui ui_styles extra_styles disp update_queue =
 
 let update_game disp ui game key =
 	Opt.iter begin fun key ->
-		Ui.handle_input !game ui key begin fun cmd ->
+		Ui.handle_input !game game_key_bindings ui key begin fun cmd ->
 			Game.update !game cmd
 		end;
 		Ui.update_game !game ui
-	end (Opt.flat_map process_input key);
+	end (Opt.flat_map (Key_bindings.get game_key_bindings) key);
 	Ui.draw ui disp !game
 
 let run map_seed things_seed game_seed skip_welcome =

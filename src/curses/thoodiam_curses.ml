@@ -44,58 +44,86 @@ let make_styles disp =
 		})) in
 	ui_styles, extra_styles
 
-let process_game_input ch =
-	Ui.Key.(
-		if ch == int_of_char 'Q' then Some Quit
-		else if ch == int_of_char '.' then Some Wait
-		else if ch == int_of_char 'g' then Some Pick_up
-		else if ch == int_of_char 'i' then Some Inventory
-		else if ch == int_of_char 'e' then Some Equipment
-		else if ch == int_of_char 'd' then Some Drop
-		else if ch == Curses.Key.up || ch == int_of_char 'k' then Some N
-		else if ch == Curses.Key.down || ch == int_of_char 'j' then Some S
-		else if ch == Curses.Key.left || ch == int_of_char 'h' then Some W
-		else if ch == Curses.Key.right || ch == int_of_char 'l' then Some E
-		else if ch == int_of_char 'y' then Some NW
-		else if ch == int_of_char 'u' then Some NE
-		else if ch == int_of_char 'b' then Some SW
-		else if ch == int_of_char 'n' then Some SE
-		else if ch == int_of_char '<' then Some Up_stairs
-		else if ch == int_of_char '>' then Some Down_stairs
-		else None
-	)
+let char_int_to_string =
+	let special =
+		[
+			Curses.Key.up, "<up>";
+			Curses.Key.down, "<down>";
+			Curses.Key.left, "<left>";
+			Curses.Key.right, "<right>";
+		] in
+	fun ch ->
+		try List.assq ch special
+		with Not_found -> Key_bindings.char_int_to_string ch
 
-let process_popup_input ch =
+let game_key_bindings =
+	Key_bindings.(Ui.Key.(
+		let b : (int, Ui.Key.t) Key_bindings.t = make () in
+		bind b Curses.Key.up N;
+		bind b Curses.Key.down S;
+		bind b Curses.Key.left W;
+		bind b Curses.Key.right E;
+		bind b (int_of_char 'k') N;
+		bind b (int_of_char 'j') S;
+		bind b (int_of_char 'h') W;
+		bind b (int_of_char 'l') E;
+		bind b (int_of_char 'y') NW;
+		bind b (int_of_char 'u') NE;
+		bind b (int_of_char 'b') SW;
+		bind b (int_of_char 'n') SE;
+		bind b (int_of_char '.') Wait;
+		bind b (int_of_char 'g') Pick_up;
+		bind b (int_of_char 'i') Inventory;
+		bind b (int_of_char 'e') Equipment;
+		bind b (int_of_char 'd') Drop;
+		bind b (int_of_char '<') Up_stairs;
+		bind b (int_of_char '>') Down_stairs;
+		bind b (int_of_char 'Q') Quit;
+		bind b (int_of_char '?') Help;
+		b
+	))
+
+let popup_key_bindings =
 	let module Ch_map = Map.Make(struct type t = int;; let compare = compare;; end) in
 	let list_id_set, _ =
 		Array.fold_left begin fun (m, i) str ->
 			Ch_map.add (int_of_char str.[0]) i m, i + 1
 		end (Ch_map.empty, 0) Ui.letter_list_ids in
-	Ui.Key.(
-		if ch == 27 || ch == 10 then Some End
-		else if ch == int_of_char '[' || ch == int_of_char ' ' then Some Page_down
-		else if ch == int_of_char ']' then Some Page_up
-		else if ch == int_of_char 'y' then Some Yes
-		else if ch == int_of_char 'n' then Some No
-		else begin
-			match Ch_map.get ch list_id_set with
-			| Some i ->
-				Some (List_item i)
-			| None ->
-				None
-		end
-	)
+	Key_bindings.(Ui.Key.(
+		let b = make () in
+		bind b 27 Finish;
+		bind b 10 Finish;
+		bind b (int_of_char '[') Page_up;
+		bind b (int_of_char ']') Page_down;
+		bind b (int_of_char ' ') Page_down;
+		bind b (int_of_char 'y') Yes;
+		bind b (int_of_char 'n') No;
+		other b "[a-zA-Z]" "list item" begin fun ch ->
+				match Ch_map.get ch list_id_set with
+				| Some i ->
+					Some (List_item i)
+				| None ->
+					None
+			end;
+		bind b (int_of_char '?') Help;
+		b
+	))
 
-let do_popup disp extra_styles parent_win ui (f : Disp.Text_view.t -> Ui.Key.t option -> bool) =
+let do_popup disp extra_styles parent_win ?(show_help=true) ui f =
 	let win = Disp.Window.make disp parent_win (0, 0) (Disp.Window.dim parent_win) in
 	let view = Disp.Text_view.make disp win in
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.popup_bg view;
 	let callback = f view in
 	ignore (callback None);
 	let rec run () =
-		if callback (process_popup_input (Disp.get_key disp)) then begin
-			run ()
-		end else () in
+		let ui_key = Key_bindings.get popup_key_bindings (Disp.get_key disp) in
+		match ui_key with
+		| Some Ui.Key.Help when show_help ->
+			Ui.show_key_bindings popup_key_bindings ui
+		| _ ->
+			if callback ui_key then begin
+				run ()
+			end else () in
 	run ();
 	Disp.Window.remove win
 
@@ -110,6 +138,7 @@ let make_ui ui_styles extra_styles disp =
 			~styles:ui_styles
 			~do_popup:(do_popup disp extra_styles map_win)
 			~list_ids:Ui.letter_list_ids
+			~input_to_string:char_int_to_string
 			in
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.panel_bg ui.Ui.panel;
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.status_bg ui.Ui.status;
@@ -124,9 +153,9 @@ let run map_seed things_seed game_seed skip_welcome =
 			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ui;
 		while Game.(game.status == Playing) do
 			Ui.draw ui disp game;
-			match process_game_input (Disp.get_key disp) with
+			match Key_bindings.get game_key_bindings (Disp.get_key disp) with
 			| Some k ->
-				Ui.handle_input game ui k begin fun cmd ->
+				Ui.handle_input game game_key_bindings ui k begin fun cmd ->
 					Game.update game cmd
 				end;
 				Ui.update_game game ui
