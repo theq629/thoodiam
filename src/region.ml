@@ -125,6 +125,19 @@ let remove_being region being =
 	region.beings <- beings1;
 	found_thing && found_being
 
+let kill_being region being =
+	Being.(
+		add_msg region being.at (Message.Die being);
+		ignore (remove_being region being);
+		queue_event region region.time (Being_death being);
+		List.iter begin fun thing ->
+			add_thing region being.at thing
+		end being.inv;
+		List.iter begin fun (_, thing) ->
+			add_thing region being.at thing
+		end being.equip;
+	)
+
 let handle_combat region attacker defender rng =
 	let hit, result = Combat.melee_combat attacker defender rng in
 	match hit with
@@ -134,11 +147,8 @@ let handle_combat region attacker defender rng =
 		Being.(
 			add_msg region attacker.Being.at (Message.Melee_hit (attacker, defender, hp, result));
 			defender.hp <- defender.hp - hp;
-			if defender.hp <= 0 then begin
-				add_msg region defender.Being.at (Message.Die defender);
-				ignore (remove_being region defender);
-				queue_event region region.time (Being_death defender)
-			end;
+			if defender.hp <= 0 then
+				kill_being region defender;
 			attacker.stress <- 10;
 			defender.stress <- 10
 		)
