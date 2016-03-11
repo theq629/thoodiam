@@ -53,6 +53,7 @@ module Make =
 			| Mystery_nonexistance
 			| Dead
 			| Left
+			| Won
 			| See_here of Thing.t list
 
 		type t =
@@ -64,7 +65,6 @@ module Make =
 				styles : Styles.t;
 				list_ids : string array;
 				mutable messages : message list;
-				mutable user_quit : bool;
 			}
 
 		let join_opt_strings opt_strs =
@@ -261,6 +261,7 @@ module Make =
 			| Mystery_nonexistance -> "You have ceased to exist for an unknown reason!"
 			| Dead -> "You are dead!"
 			| Left -> "You lost by leaving the dungeon!"
+			| Won -> "You have won!"
 			| See_here t -> p "There is %s here." (English.strings_list (List.map string_of_thing t))
 
 		let draw_panel styles game view =
@@ -390,7 +391,6 @@ module Make =
 				styles = styles;
 				list_ids = list_ids;
 				messages = [];
-				user_quit = false;
 			}
 
 		let draw ui disp game =
@@ -411,9 +411,8 @@ module Make =
 				Game.(match game.status with
 				| Playing -> ui.messages <- Mystery_nonexistance::ui.messages
 				| Lost Died -> ui.messages <- Dead::ui.messages
-				| Lost Left ->
-					ui.user_quit <- true;
-					ui.messages <- Left::ui.messages
+				| Lost Left -> ui.messages <- Left::ui.messages
+				| Won -> ui.messages <- Won::ui.messages
 				)
 			| Some player ->
 				let at = player.Being.at in
@@ -442,7 +441,6 @@ module Make =
 			| Quit ->
 				show_confirm "Quit" "Quit and kill this character?" ui false begin function
 					| true ->
-						ui.user_quit <- true;
 						do_cmd Action.Quit
 					| false -> ()
 				end
@@ -487,7 +485,7 @@ module Make =
 						if game.Game.on_level > 0 then begin
 							do_cmd Action.(Take_stairs Up)
 						end else begin
-							show_confirm "Leave dungeon" "Leave the dungeon and give up?" ui false begin function
+							show_confirm "Leave dungeon" "Leave the dungeon? You will win if you have the Thoodiam, and lose otherwise." ui false begin function
 								| true ->
 									do_cmd Action.(Take_stairs Up)
 								| false -> ()
@@ -506,7 +504,7 @@ module Make =
 			match game.Game.player with
 			| None ->
 				begin match key with
-				| Key.Quit -> ui.user_quit <- true
+				| Key.Quit -> Game.(game.status <- Lost Died)
 				| _ -> ()
 				end
 			| Some player ->

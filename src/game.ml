@@ -4,7 +4,7 @@ open Game_state
 open Game_changes
 
 type lose_reason = Died | Left
-type game_status = Playing | Lost of lose_reason
+type game_status = Playing | Lost of lose_reason | Won
 
 module Player_info =
 	struct
@@ -51,6 +51,7 @@ type t =
 	{
 		rng : Rng.Source.t;
 		make_level : int -> Region.t;
+		check_win : t -> bool;
 		mutable status : game_status;
 		mutable on_level : int;
 		mutable levels : (int * Region.t) list;
@@ -62,8 +63,10 @@ type t =
 
 let set_level game level_i =
 	if level_i < 0 then begin
+		game.status <-
+			if game.check_win game then Won
+			else Lost Left;
 		game.player <- None;
-		game.status <- Lost Left
 	end else begin
 		let region =
 			try List.assoc level_i game.levels
@@ -99,7 +102,7 @@ let set_level game level_i =
 		update_vision game.region game.player_info player
 	end game.player
 
-let make make_level init_player rng =
+let make make_level init_player check_win rng =
 	let first_level_i = 0 in
 	let first_level = make_level first_level_i in
 	let player_at =
@@ -111,6 +114,7 @@ let make make_level init_player rng =
 	{
 		rng = rng;
 		make_level = make_level;
+		check_win = check_win;
 		status = Playing;
 		on_level = first_level_i;
 		levels = [first_level_i, first_level];

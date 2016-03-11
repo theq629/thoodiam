@@ -19,10 +19,29 @@ let for_clear_points ?max_tries map is_clear num rng f =
 			let p = rand_point rng in
 			if is_clear map p then begin
 				f p;
-				run (t + 1) (n + 1)
+				run (t + 1) (n - 1)
 			end else
 				run (t + 1) n in
 	run 0 num
+
+let check_pathing ?(min_dist=0.) map is_clear finishes =
+	let module Point_set = Set.Make(struct type t = int * int;; let compare = compare;; end) in
+	let finishes = Point_set.of_list finishes in
+	fun start ->
+		let path = Map_search.dijkstra
+			~neighbours:begin fun p dp f ->
+				Map.neighbours map p begin fun p1 ->
+					if is_clear map p1 then
+						f p1 Vec.(dist (float_of_int p) (float_of_int p1))
+				end
+			end
+			~visit:begin fun p dp ->
+				dp >= min_dist && Point_set.mem p finishes
+			end
+			~starts:[start] in
+		match path with
+		| None -> false
+		| Some _ -> true
 
 let choose_stair_points ~max_tries map is_clear num_ups num_downs min_stair_dist rng =
 	let make_points is_clear num =
@@ -31,27 +50,9 @@ let choose_stair_points ~max_tries map is_clear num_ups num_downs min_stair_dist
 			points := p::!points
 		end;
 		!points in
-	let check_pathing finishes =
-		let module Point_set = Set.Make(struct type t = int * int;; let compare = compare;; end) in
-		let finishes = Point_set.of_list finishes in
-		fun start ->
-			let path = Map_search.dijkstra
-				~neighbours:begin fun p dp f ->
-					Map.neighbours map p begin fun p1 ->
-						if is_clear map p1 then
-							f p1 Vec.(dist (float_of_int p) (float_of_int p1))
-					end
-				end
-				~visit:begin fun p dp ->
-					dp >= min_stair_dist && Point_set.mem p finishes
-				end
-				~starts:[start] in
-			match path with
-			| None -> false
-			| Some _ -> true in
 	Retry.retry ~max_tries begin fun () ->
 		let downs = make_points is_clear num_downs in
-		let has_path_to_down = check_pathing downs in
+		let has_path_to_down = check_pathing ~min_dist:min_stair_dist map is_clear downs in
 		let ups = make_points (fun map p -> is_clear map p && has_path_to_down p) num_ups in
 		match ups, downs with
 		| _::_, _::_ -> Retry.Ok (ups, downs)
@@ -60,12 +61,20 @@ let choose_stair_points ~max_tries map is_clear num_ups num_downs min_stair_dist
 
 let rand_from_array = Rng.Empirical.array_elt ~weight:fst ~value:snd
 
-let make_stuff region num is_clear use_kinds rng =
-	let rand_kind = rand_from_array use_kinds in
+let make_stuff region up_stairs num is_clear normal_kinds unique_kinds rng =
+	let rand_kind = rand_from_array normal_kinds in
 	for_clear_points region.Region.map is_clear num rng begin fun p ->
 		let kind = rand_kind rng in
 		let thing = Thing.make kind in
 		Region.add_thing region p thing
+	end;
+	let has_path_to_up = check_pathing region.Region.map is_clear up_stairs in
+	let i = ref 0 in
+	for_clear_points region.Region.map (fun map p -> is_clear map p && has_path_to_up p) (Array.length unique_kinds) rng begin fun p ->
+		let kind = unique_kinds.(!i) in
+		let thing = Thing.make kind in
+		Region.add_thing region p thing;
+		incr i
 	end
 
 let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds =
@@ -155,10 +164,10 @@ let make_region spec map_rng things_rng =
 		| Retry.Ok m -> m
 		| _ -> assert false in
 	Level_spec.(
-		let all_things = Array.append spec.weapon_kinds spec.armour_kinds in
+		let normal_kinds = Array.append spec.weapon_kinds spec.armour_kinds in
 		let region =
 			Region.init map ups downs begin fun region ->
-				make_stuff region (map_area / 2000) is_clear all_things things_rng;
+				make_stuff region ups (map_area / 2000) is_clear normal_kinds spec.unique_kinds things_rng;
 				make_creatures region (map_area / 2000) is_clear spec.enemy_kinds spec.weapon_kinds spec.armour_kinds things_rng
 			end in
 		region
@@ -176,5 +185,10 @@ let init map_seed things_seed game_seed =
 		Level_spec.(
 			make_player region player_at Thing_kinds.human spec.weapon_kinds spec.armour_kinds things_rng
 		) in
-	let game = Game.make make_level init_player game_rng in
+	let check_win game =
+		match game.Game.player with
+		| None -> false
+		| Some player ->
+			List.exists (fun t -> t.Thing.kind == Thing_kinds.thoodiam) Being.(inv player) in
+	let game = Game.make make_level init_player check_win game_rng in
 	game

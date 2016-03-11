@@ -315,6 +315,13 @@ module Thing_kinds =
 						())
 					())
 				()
+
+		let thoodiam =
+			make
+				~tile:'*'
+				~name:"Thoodiam"
+				~weight:1.
+				()
 	end
 
 module Level_spec =
@@ -324,6 +331,7 @@ module Level_spec =
 				weapon_kinds : (float * Thing_kind.t) array;
 				armour_kinds : (float * Thing_kind.t) array;
 				enemy_kinds : (float * Thing_kind.t) array;
+				unique_kinds : Thing_kind.t array;
 				has_down_stairs : bool;
 			}
 
@@ -331,10 +339,11 @@ module Level_spec =
 			?(weapon_kinds=[||])
 			?(armour_kinds=[||])
 			?(enemy_kinds=[||])
+			?(unique_kinds=[||])
 			?(has_down_stairs=true)
 			()
 			=
-			{ weapon_kinds; armour_kinds; enemy_kinds; has_down_stairs }
+			{ weapon_kinds; armour_kinds; enemy_kinds; has_down_stairs; unique_kinds }
 	end
 
 let level_specs =
@@ -455,13 +464,16 @@ let level_specs =
 					2., ogre;
 					1., giant;
 				|]
+			~unique_kinds:[|
+					thoodiam
+				|]
 			()
 		);
 	|]
 
 let welcome_text =
 	Printf.sprintf
-		"You have heard that the artifact known only as the Thoodiam lies on the %s level of this dungeon. You must reach it and bring it back to the surface to succeed (or that's what you could do if winning was actually implemented, that is)."
+		"You have heard that the artifact known only as the Thoodiam lies on the %s level of this dungeon. You must reach it and bring it back to the surface to succeed."
 		(English.int (Array.length level_specs))
 
 let game_over_text =
@@ -469,3 +481,4 @@ let game_over_text =
 	| Game.Playing -> "You are still playing!"
 	| Game.Lost Game.Died -> "You died."
 	| Game.Lost Game.Left -> "You lost by leaving the dungeon without the Thoodiam."
+	| Game.Won -> "You won!"

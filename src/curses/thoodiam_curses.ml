@@ -123,7 +123,7 @@ let run map_seed things_seed game_seed skip_welcome =
 		let ui = make_ui ui_styles extra_styles disp in
 		if not skip_welcome then
 			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ui;
-		while not ui.Ui.user_quit do
+		while Game.(game.status == Playing) do
 			Ui.draw ui disp game;
 			match process_game_input (Disp.get_key disp) with
 			| Some k ->
