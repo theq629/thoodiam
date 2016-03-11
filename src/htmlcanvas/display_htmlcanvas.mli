@@ -2,6 +2,7 @@ type t
 type disp = t
 type screen_pos = int * int
 type split_dir = Horiz | Vert
+type split_part = First | Second
 type key = bool * int
 
 module Window :
@@ -9,6 +10,7 @@ module Window :
 		type t
 		val make : disp -> t -> screen_pos -> screen_pos -> t
 		val split : disp -> t -> split_dir -> float -> (t * t)
+		val split_fix : disp -> t -> split_dir -> split_part -> int -> (t * t)
 		val dim : t -> screen_pos
 		val remove : t -> unit
 	end
@@ -54,4 +56,6 @@ module Text_view :
 		val refresh : t -> unit
 		val config : ?font_pt:int -> ?font_name:string -> ?fg:Colour.t -> ?bg:Colour.t -> t -> unit
 		val draw : t -> ?style:Style.t -> pos -> string -> unit
+		val width_with_font : ?font_pt:int -> ?font_name:string -> int -> float
+		val height_with_font : ?font_pt:int -> ?font_name:string -> int -> float
 	end

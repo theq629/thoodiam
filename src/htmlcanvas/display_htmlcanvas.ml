@@ -1,4 +1,5 @@
 type split_dir = Horiz | Vert
+type split_part = First | Second
 
 module Abstract_window =
 	struct
@@ -11,7 +12,7 @@ module Abstract_window =
 				mutable subs : sub list;
 				mutable view_layouts : (t option -> unit) list;
 			}
-		and sub = Float of t | Split of (split_dir * float * t * t)
+		and sub = Float of t | Split of (split_dir * float * t * t) | Split_fix of (split_dir * split_part * int * t * t)
 
 		let dim view =
 			view.dim
@@ -34,6 +35,30 @@ module Abstract_window =
 						child2.dim <- (let dx, dy = win.dim in (dx - w, dy))
 					| Vert ->
 						let w = let _, dy = win.dim in int_of_float (frac *. float_of_int dy) in
+						child1.pos <- win.pos;
+						child1.dim <- (let dx, _ = win.dim in (dx, w));
+						child2.pos <- (let x, y = win.pos in (x, y + w));
+						child2.dim <- (let dx, dy = win.dim in (dx, dy - w))
+					end;
+					layout child1;
+					layout child2
+				| Split_fix (dir, part, size, child1, child2) ->
+					let dimx, dimy = win.dim in
+					begin match dir with
+					| Horiz ->
+						let w =
+							match part with
+							| First -> size
+							| Second -> dimx - size in
+						child1.pos <- win.pos;
+						child1.dim <- (let _, dy = win.dim in (w, dy));
+						child2.pos <- (let x, y = win.pos in (x + w, y));
+						child2.dim <- (let dx, dy = win.dim in (dx - w, dy))
+					| Vert ->
+						let w =
+							match part with
+							| First -> size
+							| Second -> dimy - size in
 						child1.pos <- win.pos;
 						child1.dim <- (let dx, _ = win.dim in (dx, w));
 						child2.pos <- (let x, y = win.pos in (x, y + w));
@@ -66,6 +91,13 @@ module Abstract_window =
 			layout parent;
 			child1, child2
 
+		let split_fix disp parent split_dir fix_part size =
+			let child1 = make_dummy () in
+			let child2 = make_dummy () in
+			parent.subs <- (Split_fix (split_dir, fix_part, size, child1, child2))::parent.subs;
+			layout parent;
+			child1, child2
+
 		let rec remove win =
 			List.iter begin fun view_layout ->
 				view_layout None
@@ -74,7 +106,10 @@ module Abstract_window =
 				match sub with
 				| Float child ->
 					remove child
-				| Split (dir, frac, child1, child2) ->
+				| Split (_, _, child1, child2) ->
+					remove child1;
+					remove child2
+				| Split_fix (_, _, _, child1, child2) ->
 					remove child1;
 					remove child2
 			end win.subs
@@ -250,11 +285,15 @@ module Base_view =
 			| None ->
 				remove_view_elt view.disp view.elt
 
-		let config ?(font_pt=12) ?(font_name="monospace") ?(fg=Colour.of_string "#000000") ?(bg=Colour.of_string "#ffffff") view =
+		let def_font_pt = 12
+		let def_font_name = "monospace"
+		let font_height_scaling = 1.5
+
+		let config ?(font_pt=def_font_pt) ?(font_name=def_font_name) ?(fg=Colour.of_string "#000000") ?(bg=Colour.of_string "#ffffff") view =
 			view.font <- Js.string (Printf.sprintf "%ipt %s" font_pt font_name);
 			let ch_metrics = view.con##measureText (Js.string "M") in
 			(* TODO: can we get the real character proportions? *)
-			view.char_dim <- (ch_metrics##width, float_of_int font_pt *. 1.5);
+			view.char_dim <- (ch_metrics##width, float_of_int font_pt *. font_height_scaling);
 			view.foreground <- fg;
 			view.background <- bg
 
@@ -300,6 +339,16 @@ module Base_view =
 		let clear view =
 			view.con##fillStyle <- view.background;
 			view.con##fillRect (0., 0., float_of_int view.elt##width, float_of_int view.elt##height)
+
+		let width_with_font ?(font_pt=def_font_pt) ?(font_name=def_font_name) len =
+			let canvas = Dom_html.createCanvas Dom_html.document in
+			let con = canvas##getContext (Dom_html._2d_) in
+			con##font <- Js.string (Printf.sprintf "%ipt %s" font_pt font_name);
+			let ch_metrics = con##measureText (Js.string (String.make len 'M')) in
+			ch_metrics##width
+
+		let height_with_font ?(font_pt=def_font_pt) ?(font_name=def_font_name) len =
+			float_of_int len *. float_of_int font_pt *. font_height_scaling
 	end
 
 module Chars_view =

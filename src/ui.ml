@@ -6,6 +6,9 @@ open Game_changes
 module Make =
 	functor (D : Display.I) ->
 	struct
+		let panel_width = 16
+		let status_height = 5
+
 		module Styles =
 			struct
 				type style = D.Style.t

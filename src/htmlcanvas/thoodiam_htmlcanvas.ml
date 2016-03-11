@@ -124,8 +124,8 @@ let popup_key_bindings =
 
 let make_ui ui_styles extra_styles disp update_queue =
 	let root = Disp.root disp in
-	let panel_win, rest_win = Disp.Window.split disp root Disp.Horiz 0.15 in
-	let map_win, status_win = Disp.Window.split disp rest_win Disp.Vert 0.8 in
+	let panel_win, rest_win = Disp.Window.split_fix disp root Disp.Horiz Disp.First (round_to_int (Disp.Text_view.width_with_font Ui.panel_width)) in
+	let map_win, status_win = Disp.Window.split_fix disp rest_win Disp.Vert Disp.Second (round_to_int (Disp.Text_view.height_with_font Ui.status_height)) in
 	let do_popup ?(show_help=true) ui f =
 		let win = Disp.Window.make disp map_win (0, 0) (Disp.Window.dim map_win) in
 		let view = Disp.Text_view.make disp win in
