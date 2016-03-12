@@ -98,6 +98,10 @@ let place_being region being at =
 	being.Being.at <- at;
 	found
 
+let have_thing region p thing =
+	let cell = Map.get region.map p in
+	List.memq thing cell.Cell.things
+
 let init_being region body_kind at =
 	let being = Being.make body_kind at in
 	ignore (place_being region being being.Being.at);
@@ -181,8 +185,8 @@ let handle_action region being action rng =
 			false
 		end;
 	| Pick_up thing -> begin
-			let found = remove_thing region being.Being.at thing in
-			if found && Being.get being thing then
+			let found = have_thing region being.Being.at thing in
+			if found && Being.get being thing && remove_thing region being.Being.at thing then
 				add_msg region being.Being.at (Message.Pick_up (being, thing));
 			false
 		end
