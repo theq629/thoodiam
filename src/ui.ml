@@ -42,6 +42,7 @@ module Make =
 					| Yes
 					| No
 					| List_item of int
+					| Sel_all
 					| Down_stairs
 					| Up_stairs
 					| Wait
@@ -68,6 +69,7 @@ module Make =
 					| Yes -> "yes"
 					| No -> "no"
 					| List_item i -> Printf.sprintf "list item %i" i
+					| Sel_all -> "select all"
 					| Down_stairs -> "down stairs"
 					| Up_stairs -> "up stairs"
 					| Wait -> "wait"
@@ -253,6 +255,11 @@ module Make =
 						start_i := max 0 (!start_i - page_size)
 					| Page_down ->
 						start_i := let i = !start_i + page_size in if i >= len then !start_i else i
+					| Sel_all ->
+						if List.length !sel >= len then
+							sel := []
+						else
+							sel := List.init len (fun i -> i)
 					| List_item i ->
 						if select then begin
 							let i1 = !start_i + i in

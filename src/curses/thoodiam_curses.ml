@@ -96,6 +96,8 @@ let popup_key_bindings =
 		bind b (int_of_char '[') Page_up;
 		bind b (int_of_char ']') Page_down;
 		bind b (int_of_char ' ') Page_down;
+		bind b (int_of_char '\t') Sel_all;
+		bind b (int_of_char '*') Sel_all;
 		bind b (int_of_char 'y') Yes;
 		bind b (int_of_char 'n') No;
 		other b "[a-zA-Z]" "list item" begin fun ch ->

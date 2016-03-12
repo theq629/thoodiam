@@ -106,6 +106,8 @@ let popup_key_bindings =
 		bind b (false, 219) Page_up;
 		bind b (false, 221) Page_down;
 		bind b (false, 32) Page_down;
+		bind b (false, 9) Sel_all;
+		bind b (true, 56) Sel_all;
 		bind b (false, 89) Yes;
 		bind b (false, 78) No;
 		other b "[a-zA-Z]" "list item" begin fun (is_shift, key_code) ->
