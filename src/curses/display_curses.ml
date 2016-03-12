@@ -22,7 +22,7 @@ type disp = t
 let init () =
 	let stdscr = Curses.initscr () in
 	ignore (Curses.curs_set 0);
-	ignore (Curses.cbreak ());
+	ignore (Curses.raw ());
 	ignore (Curses.noecho ());
 	ignore (Curses.start_color ());
 	ignore (Curses.keypad stdscr true);
