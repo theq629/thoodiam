@@ -99,10 +99,10 @@ let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds use_shield_kin
 					let b = Being.(get being armour) in
 					let c = Being.(equip being Equip_slots.main_hand weapon) in
 					let d = Being.(equip being Equip_slots.torso armour) in
-				let ok =
-					a && b && c && d in
+					let ok =
+						a && b && c && d in
 				if ok then begin
-					if Rng.Uniform.bool rng then
+					if not Weapon.(match Thing.melee weapon with Some w -> w.handedness = Two_handed | None -> false) && Rng.Uniform.bool rng then
 						Opt.iter begin fun kind ->
 							let shield = Thing.(make kind) in
 							ignore (Being.get being shield);

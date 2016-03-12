@@ -322,12 +322,12 @@ module Thing_kinds =
 				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:6
-						~str:4
+						~str:5
 						~dex:3
 						~con:4
 						~def_skills:Skills.(make
 							~melee:6
-							~evasion:4
+							~evasion:5
 						())
 					())
 				()
@@ -341,12 +341,12 @@ module Thing_kinds =
 				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:8
-						~str:6
-						~dex:3
-						~con:6
+						~str:7
+						~dex:4
+						~con:7
 						~def_skills:Skills.(make
-							~melee:6
-							~evasion:4
+							~melee:7
+							~evasion:5
 						())
 					())
 				()
@@ -360,12 +360,12 @@ module Thing_kinds =
 				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:10
-						~str:8
-						~dex:4
+						~str:10
+						~dex:5
 						~con:8
 						~def_skills:Skills.(make
 							~melee:8
-							~evasion:4
+							~evasion:6
 						())
 					())
 				()
@@ -452,7 +452,7 @@ let level_specs =
 			~enemy_kinds:[|
 					(5, 7), goblin;
 					(5, 7), kobold;
-					(0, 1), orc;
+					(0, 2), orc;
 				|]
 			()
 		);
@@ -484,7 +484,7 @@ let level_specs =
 			~enemy_kinds:[|
 					(4, 7), goblin;
 					(4, 5), kobold;
-					(1, 3), orc;
+					(1, 6), orc;
 				|]
 			()
 		);
@@ -521,8 +521,8 @@ let level_specs =
 			~enemy_kinds:[|
 					(1, 5), goblin;
 					(1, 5), kobold;
-					(2, 4), orc;
-					(1, 2), ogre;
+					(2, 6), orc;
+					(2, 3), ogre;
 				|]
 			()
 		);
@@ -561,8 +561,8 @@ let level_specs =
 					(1, 4), goblin;
 					(1, 4), kobold;
 					(3, 5), orc;
-					(2, 3), ogre;
-					(1, 1), giant;
+					(2, 6), ogre;
+					(1, 3), giant;
 				|]
 			~unique_kinds:[|
 					thoodiam
