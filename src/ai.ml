@@ -18,6 +18,7 @@ let make region =
 	}
 
 let update_move_map ai =
+	let find_player_radius = 15. in
 	let is_clear p =
 		Region.(
 			let cell = Map.get ai.region.map p in
@@ -25,7 +26,7 @@ let update_move_map ai =
 		) in
 	Map_search.floodfill
 		~neighbours:begin fun p dp f ->
-			if dp <= 20. then
+			if dp <= find_player_radius then
 				Map.neighbours ai.region.Region.map p begin fun p1 ->
 					if is_clear p1 then
 						f p1 Vec.(dist (float_of_int p) (float_of_int p1))

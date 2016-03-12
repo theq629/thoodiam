@@ -124,14 +124,17 @@ let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds use_shield_kin
 			end in
 		run 0
 
-let make_creatures region num is_clear use_being_kind use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds rng =
-	let rand_kind = rand_from_array use_being_kind in
+let make_creatures region is_clear use_being_kind use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds rng =
 	let equip = equip_being use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds in
-	for_clear_points region.Region.map is_clear num rng begin fun p ->
-		let kind = rand_kind rng in
-		let being = Region.init_being region kind p in
-		equip being rng
-	end
+	Array.iter begin fun (amount, kind) ->
+		let num =
+			let min_num, max_num = amount in
+			Rng.Uniform.int min_num (max_num + 1) rng in
+		for_clear_points region.Region.map is_clear num rng begin fun p ->
+			let being = Region.init_being region kind p in
+			equip being rng
+		end
+	end use_being_kind
 
 let make_player region at being_kind use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds rng =
 	let player = Region.init_being region being_kind at in
@@ -178,7 +181,7 @@ let make_map ~max_tries dim num_stairs min_stair_dist has_downs rng =
 let make_region spec map_rng things_rng =
 	let map_dimx, map_dimy as map_dim = 50, 50 in
 	let map_area = map_dimx * map_dimy in
-	let num_stairs = map_area / 1000 in
+	let num_stairs = Thoodiam_data.stairs_per_level map_area in
 	let min_stair_dist = float_of_int (max map_dimx map_dimy) /. 4. in
 	let map, ups, downs =
 		match make_map ~max_tries:max_int map_dim num_stairs min_stair_dist spec.Level_spec.has_down_stairs map_rng with
@@ -188,8 +191,8 @@ let make_region spec map_rng things_rng =
 		let normal_kinds = List.fold_left Array.append [||] [spec.weapon_kinds; spec.body_armour_kinds; spec.shield_kinds; spec.helm_kinds] in
 		let region =
 			Region.init map ups downs begin fun region ->
-				make_stuff region ups (map_area / 250) is_clear normal_kinds spec.unique_kinds things_rng;
-				make_creatures region (map_area / 200) is_clear spec.enemy_kinds spec.weapon_kinds spec.body_armour_kinds spec.shield_kinds spec.helm_kinds things_rng
+				make_stuff region ups (Thoodiam_data.things_per_level map_area) is_clear normal_kinds spec.unique_kinds things_rng;
+				make_creatures region is_clear spec.enemy_kinds spec.weapon_kinds spec.body_armour_kinds spec.shield_kinds spec.helm_kinds things_rng
 			end in
 		region
 	)

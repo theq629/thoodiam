@@ -386,7 +386,7 @@ module Level_spec =
 				body_armour_kinds : (float * Thing_kind.t) array;
 				shield_kinds : (float * Thing_kind.t) array;
 				helm_kinds : (float * Thing_kind.t) array;
-				enemy_kinds : (float * Thing_kind.t) array;
+				enemy_kinds : ((int * int) * Thing_kind.t) array;
 				unique_kinds : Thing_kind.t array;
 				has_down_stairs : bool;
 			}
@@ -424,19 +424,20 @@ let level_specs =
 					1., helm;
 				|]
 			~enemy_kinds:[|
-					1., goblin;
+					(8, 14), goblin;
 				|]
 			()
 		);
 		Level_spec.(make
 			~weapon_kinds:[|
-					1., dagger;
+					6., dagger;
 					1., short_sword;
 					1., quarterstaff;
 					1., long_sword;
-					1., spear;
+					4., spear;
 					1., battle_axe;
 					1., war_hammer;
+					2., throwing_axe;
 				|]
 			~body_armour_kinds:[|
 					1., leather_armour;
@@ -449,21 +450,22 @@ let level_specs =
 					1., helm;
 				|]
 			~enemy_kinds:[|
-					1., goblin;
-					1., kobold;
+					(5, 7), goblin;
+					(5, 7), kobold;
 				|]
 			()
 		);
 		Level_spec.(make
 			~weapon_kinds:[|
-					1., dagger;
+					8., dagger;
 					1., short_sword;
 					1., quarterstaff;
 					2., long_sword;
-					2., spear;
+					6., spear;
 					2., battle_axe;
 					2., war_hammer;
 					2., bastard_sword;
+					4., throwing_axe;
 				|]
 			~body_armour_kinds:[|
 					1., leather_armour;
@@ -479,19 +481,19 @@ let level_specs =
 					1., great_helm;
 				|]
 			~enemy_kinds:[|
-					1., goblin;
-					1., kobold;
-					2., orc;
+					(4, 5), goblin;
+					(4, 5), kobold;
+					(1, 3), orc;
 				|]
 			()
 		);
 		Level_spec.(make
 			~weapon_kinds:[|
-					1., dagger;
+					10., dagger;
 					1., short_sword;
 					1., quarterstaff;
 					1., long_sword;
-					1., spear;
+					8., spear;
 					1., battle_axe;
 					1., war_hammer;
 					2., bastard_sword;
@@ -499,6 +501,7 @@ let level_specs =
 					2., great_axe;
 					2., great_spear;
 					2., great_hammer;
+					8., throwing_axe;
 				|]
 			~body_armour_kinds:[|
 					1., leather_armour;
@@ -515,21 +518,21 @@ let level_specs =
 					2., great_helm;
 				|]
 			~enemy_kinds:[|
-					1., goblin;
-					1., kobold;
-					2., orc;
-					2., ogre;
+					(1, 4), goblin;
+					(1, 4), kobold;
+					(1, 4), orc;
+					(1, 1), ogre;
 				|]
 			()
 		);
 		Level_spec.(make
 			~has_down_stairs:false
 			~weapon_kinds:[|
-					1., dagger;
+					10., dagger;
 					1., short_sword;
 					1., quarterstaff;
 					1., long_sword;
-					1., spear;
+					8., spear;
 					1., battle_axe;
 					1., war_hammer;
 					1., bastard_sword;
@@ -537,6 +540,7 @@ let level_specs =
 					1., great_axe;
 					1., great_spear;
 					1., great_hammer;
+					8., throwing_axe;
 				|]
 			~body_armour_kinds:[|
 					1., leather_armour;
@@ -553,11 +557,11 @@ let level_specs =
 					1., great_helm;
 				|]
 			~enemy_kinds:[|
-					1., goblin;
-					1., kobold;
-					1., orc;
-					2., ogre;
-					2., giant;
+					(1, 4), goblin;
+					(1, 4), kobold;
+					(1, 4), orc;
+					(1, 2), ogre;
+					(1, 1), giant;
 				|]
 			~unique_kinds:[|
 					thoodiam
@@ -565,6 +569,12 @@ let level_specs =
 			()
 		);
 	|]
+
+let things_per_level map_area =
+	map_area / 250
+
+let stairs_per_level map_area =
+	max 1 (map_area / 1000)
 
 let welcome_text =
 	Printf.sprintf
