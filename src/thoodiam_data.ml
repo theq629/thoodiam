@@ -25,16 +25,24 @@ module Equip_slots =
 	struct
 		open Equip_slot
 
-		let melee_weapon = make
-			~name:"weapon"
-			~is_melee:true
-			~affects_combat:true
+		let main_hand = make
+			~name:"main hand"
+			~kind:Hand
 			()
 
-		let armour = make
-			~name:"armour"
-			~is_armour:true
-			~affects_combat:true
+		let off_hand = make
+			~name:"off hand"
+			~kind:Hand
+			()
+
+		let torso = make
+			~name:"torso"
+			~kind:Torso
+			()
+
+		let head = make
+			~name:"head"
+			~kind:Head
 			()
 	end
 
@@ -74,7 +82,7 @@ module Thing_kinds =
 				~name:"bastard sword"
 				~weight:4.
 				~in_combat:In_combat.(make ~accuracy:(-1) ~evasion:1 ())
-				~melee:Weapon.(make ~damage:(Dice.make 3 3) ())
+				~melee:Weapon.(make ~damage:(Dice.make 3 3) ~handedness:Hand_and_a_half ())
 				()
 
 		let great_sword =
@@ -83,7 +91,7 @@ module Thing_kinds =
 				~name:"greatsword"
 				~weight:7.
 				~in_combat:In_combat.(make ~accuracy:(-1) ~evasion:1 ())
-				~melee:Weapon.(make ~damage:(Dice.make 3 5) ())
+				~melee:Weapon.(make ~damage:(Dice.make 3 5) ~handedness:Two_handed ())
 				()
 
 		let spear =
@@ -92,7 +100,7 @@ module Thing_kinds =
 				~name:"spear"
 				~weight:3.
 				~in_combat:In_combat.(make ~accuracy:(-1) ())
-				~melee:Weapon.(make ~damage:(Dice.make 1 9) ())
+				~melee:Weapon.(make ~damage:(Dice.make 1 9) ~handedness:Hand_and_a_half ())
 				()
 
 		let great_spear =
@@ -101,7 +109,7 @@ module Thing_kinds =
 				~name:"great spear"
 				~weight:6.
 				~in_combat:In_combat.(make ~accuracy:(-1) ~evasion:1 ())
-				~melee:Weapon.(make ~damage:(Dice.make 3 13) ())
+				~melee:Weapon.(make ~damage:(Dice.make 3 13) ~handedness:Two_handed ())
 				()
 
 		let glaive =
@@ -110,7 +118,7 @@ module Thing_kinds =
 				~name:"glaive"
 				~weight:7.
 				~in_combat:In_combat.(make ~accuracy:(-2) ~evasion:1 ())
-				~melee:Weapon.(make ~damage:(Dice.make 2 9) ())
+				~melee:Weapon.(make ~damage:(Dice.make 2 9) ~handedness:Two_handed ())
 				()
 
 		let battle_axe =
@@ -119,7 +127,7 @@ module Thing_kinds =
 				~name:"battle axe"
 				~weight:4.5
 				~in_combat:In_combat.(make ~accuracy:(-3) ())
-				~melee:Weapon.(make ~damage:(Dice.make 3 4) ())
+				~melee:Weapon.(make ~damage:(Dice.make 3 4) ~handedness:Hand_and_a_half ())
 				()
 
 		let great_axe =
@@ -128,7 +136,7 @@ module Thing_kinds =
 				~name:"battle axe"
 				~weight:10.
 				~in_combat:In_combat.(make ~accuracy:(-4) ~evasion:1 ())
-				~melee:Weapon.(make ~damage:(Dice.make 5 5) ())
+				~melee:Weapon.(make ~damage:(Dice.make 5 5) ~handedness:Two_handed ())
 				()
 
 		let quarterstaff =
@@ -137,7 +145,7 @@ module Thing_kinds =
 				~name:"quarterstaff"
 				~weight:4.
 				~in_combat:In_combat.(make ~evasion:2 ())
-				~melee:Weapon.(make ~damage:(Dice.make 2 3) ())
+				~melee:Weapon.(make ~damage:(Dice.make 2 3) ~handedness:Two_handed ())
 				()
 
 		let war_hammer =
@@ -146,7 +154,7 @@ module Thing_kinds =
 				~name:"war hammer"
 				~weight:5.
 				~in_combat:In_combat.(make ~accuracy:(-2) ())
-				~melee:Weapon.(make ~damage:(Dice.make 4 1) ())
+				~melee:Weapon.(make ~damage:(Dice.make 4 1) ~handedness:Hand_and_a_half ())
 				()
 
 		let great_hammer =
@@ -155,7 +163,7 @@ module Thing_kinds =
 				~name:"great hammer"
 				~weight:10.
 				~in_combat:In_combat.(make ~accuracy:(-2) ())
-				~melee:Weapon.(make ~damage:(Dice.make 4 1) ())
+				~melee:Weapon.(make ~damage:(Dice.make 4 1) ~handedness:Two_handed ())
 				()
 
 		let robe =
@@ -163,7 +171,7 @@ module Thing_kinds =
 				~tile:'['
 				~name:"robe"
 				~weight:1.
-				~armour:Armour.(make ())
+				~body_armour:Armour.(make ())
 				()
 
 		let leather_armour =
@@ -172,7 +180,7 @@ module Thing_kinds =
 				~name:"leather armour"
 				~weight:3.
 				~in_combat:In_combat.(make ~evasion:(-1) ())
-				~armour:Armour.(make ~protection:(Dice.make 1 4) ())
+				~body_armour:Armour.(make ~protection:(Dice.make 1 4) ())
 				()
 
 		let studded_leather_armour =
@@ -181,7 +189,7 @@ module Thing_kinds =
 				~name:"studded leather armour"
 				~weight:5.
 				~in_combat:In_combat.(make ~evasion:(-2) ())
-				~armour:Armour.(make ~protection:(Dice.make 1 6) ())
+				~body_armour:Armour.(make ~protection:(Dice.make 1 6) ())
 				()
 
 		let mail_corslet =
@@ -190,7 +198,7 @@ module Thing_kinds =
 				~name:"mail corslet"
 				~weight:10.
 				~in_combat:In_combat.(make ~accuracy:(-1) ~evasion:(-3) ())
-				~armour:Armour.(make ~protection:(Dice.make 2 4) ())
+				~body_armour:Armour.(make ~protection:(Dice.make 2 4) ())
 				()
 
 		let mail_hauberk =
@@ -199,7 +207,42 @@ module Thing_kinds =
 				~name:"mail hauberk"
 				~weight:15.
 				~in_combat:In_combat.(make ~accuracy:(-2) ~evasion:(-4) ())
-				~armour:Armour.(make ~protection:(Dice.make 2 5) ())
+				~body_armour:Armour.(make ~protection:(Dice.make 2 5) ())
+				()
+
+		let round_shield =
+			make
+				~tile:'['
+				~name:"round shield"
+				~weight:5.
+				~shield:Armour.(make ~protection:(Dice.make 1 3) ())
+				()
+
+		let kite_shield =
+			make
+				~tile:'['
+				~name:"kite shield"
+				~weight:8.
+				~in_combat:In_combat.(make ~accuracy:(-2) ())
+				~shield:Armour.(make ~protection:(Dice.make 1 6) ())
+				()
+
+		let helm =
+			make
+				~tile:'['
+				~name:"helm"
+				~weight:2.
+				~in_combat:In_combat.(make ~evasion:(-1) ())
+				~helm:Armour.(make ~protection:(Dice.make 1 2) ())
+				()
+
+		let great_helm =
+			make
+				~tile:'['
+				~name:"great helm"
+				~weight:3.
+				~in_combat:In_combat.(make ~evasion:(-2) ())
+				~helm:Armour.(make ~protection:(Dice.make 1 3) ())
 				()
 
 		let human =
@@ -208,7 +251,7 @@ module Thing_kinds =
 				~name:"human"
 				~weight:100.
 				~blocks:true
-				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:10
 						~str:7
@@ -227,7 +270,7 @@ module Thing_kinds =
 				~name:"kobold"
 				~weight:70.
 				~blocks:true
-				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:8
 						~str:2
@@ -246,7 +289,7 @@ module Thing_kinds =
 				~name:"goblin"
 				~weight:70.
 				~blocks:true
-				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:6
 						~str:2
@@ -265,7 +308,7 @@ module Thing_kinds =
 				~name:"orc"
 				~weight:100.
 				~blocks:true
-				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:6
 						~str:4
@@ -284,7 +327,7 @@ module Thing_kinds =
 				~name:"orge"
 				~weight:150.
 				~blocks:true
-				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:8
 						~str:6
@@ -303,7 +346,7 @@ module Thing_kinds =
 				~name:"giant"
 				~weight:200.
 				~blocks:true
-				~equip_slots:Equip_slots.[melee_weapon; armour]
+				~equip_slots:Equip_slots.[main_hand; off_hand; torso; head]
 				~bodyable:Bodyable.(make
 						~vision:10
 						~str:8
@@ -329,7 +372,9 @@ module Level_spec =
 		type t =
 			{
 				weapon_kinds : (float * Thing_kind.t) array;
-				armour_kinds : (float * Thing_kind.t) array;
+				body_armour_kinds : (float * Thing_kind.t) array;
+				shield_kinds : (float * Thing_kind.t) array;
+				helm_kinds : (float * Thing_kind.t) array;
 				enemy_kinds : (float * Thing_kind.t) array;
 				unique_kinds : Thing_kind.t array;
 				has_down_stairs : bool;
@@ -337,13 +382,15 @@ module Level_spec =
 
 		let make
 			?(weapon_kinds=[||])
-			?(armour_kinds=[||])
+			?(body_armour_kinds=[||])
+			?(shield_kinds=[||])
+			?(helm_kinds=[||])
 			?(enemy_kinds=[||])
 			?(unique_kinds=[||])
 			?(has_down_stairs=true)
 			()
 			=
-			{ weapon_kinds; armour_kinds; enemy_kinds; has_down_stairs; unique_kinds }
+			{ weapon_kinds; body_armour_kinds; shield_kinds; helm_kinds; enemy_kinds; has_down_stairs; unique_kinds }
 	end
 
 let level_specs =
@@ -355,9 +402,15 @@ let level_specs =
 					1., short_sword;
 					1., quarterstaff;
 				|]
-			~armour_kinds:[|
+			~body_armour_kinds:[|
 					1., robe;
 					1., leather_armour;
+				|]
+			~shield_kinds:[|
+					1., round_shield;
+				|]
+			~helm_kinds:[|
+					1., helm;
 				|]
 			~enemy_kinds:[|
 					1., goblin;
@@ -374,9 +427,15 @@ let level_specs =
 					1., battle_axe;
 					1., war_hammer;
 				|]
-			~armour_kinds:[|
+			~body_armour_kinds:[|
 					1., leather_armour;
 					1., studded_leather_armour;
+				|]
+			~shield_kinds:[|
+					1., round_shield;
+				|]
+			~helm_kinds:[|
+					1., helm;
 				|]
 			~enemy_kinds:[|
 					1., goblin;
@@ -395,10 +454,18 @@ let level_specs =
 					2., war_hammer;
 					2., bastard_sword;
 				|]
-			~armour_kinds:[|
+			~body_armour_kinds:[|
 					1., leather_armour;
 					2., studded_leather_armour;
 					2., mail_corslet;
+				|]
+			~shield_kinds:[|
+					1., round_shield;
+					1., kite_shield;
+				|]
+			~helm_kinds:[|
+					1., helm;
+					1., great_helm;
 				|]
 			~enemy_kinds:[|
 					1., goblin;
@@ -422,11 +489,19 @@ let level_specs =
 					2., great_spear;
 					2., great_hammer;
 				|]
-			~armour_kinds:[|
+			~body_armour_kinds:[|
 					1., leather_armour;
 					1., studded_leather_armour;
 					2., mail_corslet;
 					2., mail_hauberk;
+				|]
+			~shield_kinds:[|
+					1., round_shield;
+					2., kite_shield;
+				|]
+			~helm_kinds:[|
+					1., helm;
+					2., great_helm;
 				|]
 			~enemy_kinds:[|
 					1., goblin;
@@ -452,11 +527,19 @@ let level_specs =
 					1., great_spear;
 					1., great_hammer;
 				|]
-			~armour_kinds:[|
+			~body_armour_kinds:[|
 					1., leather_armour;
 					1., studded_leather_armour;
 					1., mail_corslet;
 					1., mail_hauberk;
+				|]
+			~shield_kinds:[|
+					1., round_shield;
+					1., kite_shield;
+				|]
+			~helm_kinds:[|
+					1., helm;
+					1., great_helm;
 				|]
 			~enemy_kinds:[|
 					1., goblin;

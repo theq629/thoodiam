@@ -121,24 +121,65 @@ module Make =
 		let join_opt_strings opt_strs =
 			String.concat " " (List.filter_map (fun x -> x) opt_strs)
 
+		let string_of_effective_weapon_stats accuracy (_, damage) evasion =
+			let p = Printf.sprintf in
+			p "(%s,%s)%s"
+				Combat.(int_factors_to_string accuracy)
+				Weapon.(Combat.(Mod_dice.to_string damage))
+				(if evasion != 0 then p " [%i]" evasion else "")
+
+		let string_of_armour_main_stats thing =
+			let open Thing in
+			let open Thing_kind in
+			let evasion =
+				match Thing.in_combat thing with
+				| Some ic -> ic.In_combat.evasion
+				| None -> 0 in
+			String.concat " "
+				begin
+					List.filter_map begin
+						Opt.map begin fun melee ->
+							Printf.sprintf "[%i,%s]" evasion Armour.(Dice.to_string melee.protection)
+						end
+					end [thing.kind.body_armour; thing.kind.shield; thing.kind.helm]
+				end
+
 		let string_of_combat_stats thing =
 			let open Game_data in
 			let open In_combat in
-			let open Weapon in
-			let open Armour in
+			let open Thing in
+			let open Thing_kind in
 			let p = Printf.sprintf in
 			let accuracy, evasion =
-				match Thing.(in_combat thing) with
+				match in_combat thing with
 				| Some ic -> ic.accuracy, ic.evasion
 				| None -> 0, 0 in
-			match (Thing.melee thing), (Thing.armour thing) with
-			| Some w, Some a ->
-				p "(%i,%s) [%i,%s]" accuracy (Dice.to_string w.damage) evasion (Dice.to_string a.protection)
-			| Some w, None ->
-				p "(%i,%s)%s" accuracy (Dice.to_string w.damage) (if evasion != 0 then p " [%i]" evasion else "")
-			| None, Some a ->
-				p "%s[%i,%s]" (if accuracy != 0 then p "(%i) " accuracy else "") evasion (Dice.to_string a.protection)
-			| None, None ->
+			let melee_strs =
+				List.filter_map begin
+					Opt.map begin fun melee ->
+						p "(%i,%s)" accuracy Weapon.(Dice.to_string melee.damage)
+					end
+				end [thing.kind.melee] in
+			let armour_strs =
+				List.filter_map begin
+					Opt.map begin fun melee ->
+						p "[%i,%s]" evasion Armour.(Dice.to_string melee.protection)
+					end
+				end [thing.kind.body_armour; thing.kind.shield; thing.kind.helm] in
+			match melee_strs, armour_strs with
+			| _::_, _::_ ->
+				p "%s %s"
+					(String.concat " " melee_strs)
+					(String.concat " " armour_strs)
+			| _::_, [] ->
+				p "%s%s"
+					(String.concat " " melee_strs)
+					(if evasion != 0 then p " [%i]" evasion else "")
+			| [], _::_ ->
+				p "%s%s"
+					(if accuracy != 0 then p "(%i) " accuracy else "")
+					(String.concat " " armour_strs)
+			| [], [] ->
 				p ""
 
 		let string_of_thing thing =
@@ -151,6 +192,28 @@ module Make =
 			Thing.(
 				Printf.sprintf "%s %0.2f" (string_of_thing thing) Thing.(weight thing)
 			)
+
+		let string_of_slot being equip_slot =
+			Printf.sprintf "%s: %s%s%s"
+				equip_slot.Equip_slot.name
+				begin match Being.(in_slot being equip_slot) with
+					| Some t -> string_of_thing_inv t
+					| None -> ""
+				end
+				begin
+					if Being.can_use being equip_slot then ""
+					else " [can't use]"
+				end
+				begin
+					if Equip_slot.(equip_slot.kind = Hand) then begin
+						Being.(match weapon_state being equip_slot with
+						| No_weapon -> ""
+						| One_handed -> " [one handed]"
+						| Two_handed -> " [two handed]"
+						| Need_hand -> " [need two hands]"
+						)
+					end else ""
+				end
 
 		let wrap_string max_space_adjust len str =
 			let n = String.length str in
@@ -312,8 +375,8 @@ module Make =
 			let being b = Thing.(name Being.(body b)) in
 			Game_changes.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
-			| Melee_hit (a, d, hp, r) -> p "The %s hits the %s for %i damage: %s." (being a) (being d) hp (Combat.Result.to_string r)
-			| Melee_miss (a, d, r) -> p "The %s misses the %s: %s." (being a) (being d) (Combat.Result.to_string r)
+			| Melee_hit (a, d, hp, r) -> p "The %s hits the %s for %i damage: %s." (being a) (being d) hp (Combat.Result.to_desc r)
+			| Melee_miss (a, d, r) -> p "The %s misses the %s: %s." (being a) (being d) (Combat.Result.to_desc r)
 			| Drop (b, t) -> p "The %s drops up the %s." (being b) (thing t)
 			| Equip (b, _, t) -> p "The %s equips up the %s." (being b) (thing t)
 			| Unequip (b, _, t) -> p "The %s unequips up the %s." (being b) (thing t)
@@ -331,7 +394,6 @@ module Make =
 			| See_here t -> p "There is %s here." (English.strings_list (List.map string_of_thing t))
 
 		let draw_panel styles game view =
-			let rf x = string_of_int (int_of_float (0.5 +. x)) in
 			D.Text_view.clear view;
 			let y = ref 0 in
 			let draw_space () =
@@ -370,27 +432,25 @@ module Make =
 				);
 				draw_space ();
 				Being.(
+					let rf x = string_of_int (int_of_float x) in
 					Opt.iter begin fun being ->
 						draw_triple "Inv" (rf being.inv_weight) (rf being.can_carry)
 					end game.player
 				);
 				draw_space ();
-				Thing.(
-					Opt.iter begin fun player ->
-						List.iter begin fun equip_slot ->
-							Opt.iter begin fun thing ->
-								if equip_slot.Equip_slot.is_melee then
-									draw_line (string_of_combat_stats thing)
-							end Being.(in_slot player equip_slot)
-						end Being.(equip_slots player);
-						List.iter begin fun equip_slot ->
-							Opt.iter begin fun thing ->
-								if equip_slot.Equip_slot.is_armour then
-									draw_line (string_of_combat_stats thing)
-							end Being.(in_slot player equip_slot)
-						end Being.(equip_slots player)
-					end game.player
-				)
+				Opt.iter begin fun player ->
+					let equips = Being.get_usable_equips player in
+					List.iter begin fun (slot, thing) ->
+						if Thing.is_weapon thing then
+							let accuracy, damage = Combat.effective_weapon player slot in
+							let evasion = match Thing.in_combat thing with Some ic -> ic.In_combat.evasion | None -> 0 in
+							draw_line (string_of_effective_weapon_stats accuracy damage evasion)
+					end equips;
+					List.iter begin fun (_, thing) ->
+						if Thing.is_armour thing then
+							draw_line (string_of_armour_main_stats thing)
+					end equips
+				end game.player
 			)
 
 		let draw_status styles game_messages ui_messages view =
@@ -518,14 +578,7 @@ module Make =
 					()
 				end
 			| Equipment ->
-				let string_of_slot es =
-					Printf.sprintf "%s: %s"
-						es.Equip_slot.name
-						begin match Being.(in_slot player es) with
-							| Some t -> string_of_thing_inv t
-							| None -> ""
-						end in
-				show_list "Equipment" string_of_slot Being.(equip_slots player) ~repeat:true ui begin fun equip_slot ->
+				show_list "Equipment" (string_of_slot player) Being.(equip_slots player) ~repeat:true ui begin fun equip_slot ->
 					match Being.(in_slot player equip_slot) with
 					| Some _ ->
 						do_cmd Action.(Unequip equip_slot)

@@ -2,7 +2,7 @@ open Std
 open Game_data
 open Game_state
 
-let factors_to_string ?(need_parens=true) empty_string part_to_string factors =
+let factors_to_desc ?(need_parens=true) empty_string part_to_string factors =
 	let parts = List.map begin function
 		| None, x -> part_to_string x
 		| Some e, x -> Printf.sprintf "%s [%s]" (part_to_string x) e
@@ -14,6 +14,22 @@ let factors_to_string ?(need_parens=true) empty_string part_to_string factors =
 		| [_] when not (List.exists (function Some _, _ -> true | _ -> false) factors) -> parts_str
 		| _ -> Printf.sprintf "(%s)" parts_str
 	end else parts_str
+
+let factors_to_string ?(need_parens=true) empty_string part_to_string factors =
+	let parts = List.map begin function
+		| None, x -> part_to_string x
+		| Some _, x -> Printf.sprintf "%s" (part_to_string x)
+		end factors in
+	let parts_str = String.concat " + " parts in
+	if need_parens then begin
+		match parts with
+		| [] -> empty_string
+		| [_] when not (List.exists (function Some _, _ -> true | _ -> false) factors) -> parts_str
+		| _ -> Printf.sprintf "(%s)" parts_str
+	end else parts_str
+
+let int_factors_to_string factors =
+	string_of_int (List.fold_left (fun t (_, x) -> t + x) 0 factors)
 
 module Mod_dice =
 	struct
@@ -29,10 +45,15 @@ module Mod_dice =
 				sides = [None, dice.Dice.sides];
 			}
 
+		let to_desc mod_dice =
+			Printf.sprintf "%sd%s"
+				(factors_to_desc "0" string_of_int mod_dice.num)
+				(factors_to_desc "0" string_of_int mod_dice.sides)
+
 		let to_string mod_dice =
 			Printf.sprintf "%sd%s"
-				(factors_to_string "0" string_of_int mod_dice.num)
-				(factors_to_string "0" string_of_int mod_dice.sides)
+				(int_factors_to_string mod_dice.num)
+				(int_factors_to_string mod_dice.sides)
 
 		let roll mod_dice rng =
 			let num = List.fold_left (fun s (_, n) -> s + n) 0 mod_dice.num in
@@ -48,11 +69,17 @@ module Roll =
 				dice : (string option * Mod_dice.t) list;
 			}
 
-		let to_string roll =
-			let dice_str = factors_to_string ~need_parens:false "0" Mod_dice.to_string roll.dice in
+		let to_desc roll =
+			let dice_str = factors_to_desc ~need_parens:false "0" Mod_dice.to_desc roll.dice in
 			match roll.base with
 			| [] -> dice_str
-			| _ -> Printf.sprintf "%s + %s" (factors_to_string ~need_parens:false "0" string_of_int roll.base) dice_str
+			| _ -> Printf.sprintf "%s + %s" (factors_to_desc ~need_parens:false "0" string_of_int roll.base) dice_str
+
+		let to_string roll =
+			let dice_str = String.concat " + " (List.map (fun (_, d) -> Mod_dice.to_string d) roll.dice) in
+			match roll.base with
+			| [] -> dice_str
+			| _ -> Printf.sprintf "%s + %s" (int_factors_to_string roll.base) dice_str
 
 		let roll roll rng =
 			let base = List.fold_left (fun s (_, b) -> s + b) 0 roll.base in
@@ -75,6 +102,15 @@ module Result =
 				hit : hit_result option;
 			}
 
+		let pairs_to_desc (roll1, outcome1) (roll2, outcome2) =
+			Printf.sprintf "%s vs %s -> %i vs %i" (Roll.to_desc roll1) (Roll.to_desc roll2) outcome1 outcome2
+
+		let to_desc result =
+			(pairs_to_desc result.attack result.evasion)
+			^ match result.hit with
+				| None -> ""
+				| Some h -> "; " ^ (pairs_to_desc h.damage h.protection)
+
 		let pairs_to_string (roll1, outcome1) (roll2, outcome2) =
 			Printf.sprintf "%s vs %s -> %i vs %i" (Roll.to_string roll1) (Roll.to_string roll2) outcome1 outcome2
 
@@ -91,89 +127,128 @@ let d1d20 =
 		sides = [None, 20];
 	})
 
-let calc_attack attacker weapon =
-	let from_equip =
-		List.filter_map begin fun equip_slot ->
-			if equip_slot.Equip_slot.affects_combat then begin
-				Opt.flat_map begin fun thing ->
-					match (Thing.in_combat thing) with
-					| Some ic when ic.In_combat.accuracy != 0 || (match weapon with Some w -> w == thing | None -> false) ->
-						Some (Some (Thing.name thing), ic.In_combat.accuracy)
-					| _ -> None
-				end Being.(in_slot attacker equip_slot)
-			end else
-				None
-		end Being.(equip_slots attacker) in
+let effective_weapon_equip being equips weapon_slot weapon =
+	let accuracy_from_equip =
+		List.filter_map begin fun (_, thing) ->
+			match Thing.in_combat thing with
+			| Some ic when ic.In_combat.accuracy != 0 || thing == weapon ->
+				Some (Some (Thing.name thing), ic.In_combat.accuracy)
+			| _ -> None
+		end equips in
+	let strength =
+		match Thing.(bodyable Being.(body being)) with
+		| None -> 0
+		| Some b -> Bodyable.(b.str) in
+	let make_dice melee strength_label weight strength_extra =
+		let strength_bonus = min (int_of_float weight) strength in
+		let strength_factors =
+			if strength_bonus != 0 then [Some strength_label, strength_bonus]
+			else [] in
+		Mod_dice.(Weapon.({
+			num = [None, melee.damage.Dice.num];
+			sides = (None, melee.damage.Dice.sides)::(strength_factors @ strength_extra);
+		})) in
+	let damage =
+		match Thing.(melee weapon) with
+		| None ->
+			Some "no weapon", Mod_dice.of_dice Dice.zero
+		| Some melee ->
+			Being.(match weapon_state being weapon_slot with
+			| No_weapon ->
+				Some "no weapon", Mod_dice.of_dice Dice.zero
+			| Need_hand ->
+				Some "can't use weapon", Mod_dice.of_dice Dice.zero
+			| One_handed ->
+				Some Thing.(name weapon), make_dice melee "strength" Thing.(weight weapon) []
+			| Two_handed when Weapon.(melee.handedness = Hand_and_a_half) ->
+				Some Thing.(name weapon), make_dice melee "strength" Thing.(weight weapon) [Some "hand-and-a-half", 2]
+			| Two_handed ->
+				let use_weight = Thing.weight weapon /. 1.5 in
+				Some Thing.(name weapon), make_dice melee "two-handed strength" use_weight []
+			) in
+	(
+		(Some "melee", Being.(being.skills.Skills.melee))::accuracy_from_equip,
+		damage
+	)
+
+let no_weapon =
+	(
+		[Some "no weapon", 0],
+		(Some "no weapon", Mod_dice.of_dice Dice.zero)
+	)
+
+let effective_weapon being weapon_slot =
+	match Being.in_slot being weapon_slot with
+	| None -> no_weapon
+	| Some weapon -> effective_weapon_equip being (Being.get_usable_equips being) weapon_slot weapon
+
+let calc_attack attacker weapon_accuracy =
 	Roll.({
-		base = (Some "melee", Being.(attacker.skills.Skills.melee))::from_equip;
+		base = weapon_accuracy;
 		dice = [None, d1d20];
 	})
 
-let calc_evasion defender =
+let calc_evasion defender equips =
 	let from_equip =
-		List.filter_map begin fun equip_slot ->
-			if equip_slot.Equip_slot.affects_combat then begin
-				Opt.flat_map begin fun thing ->
-					match (Thing.in_combat thing) with
-					| Some ic when ic.In_combat.evasion != 0 || equip_slot.Equip_slot.is_armour ->
-						Some (Some (Thing.name thing), ic.In_combat.evasion)
-					| _ -> None
-				end Being.(in_slot defender equip_slot)
-			end else
-				None
-		end Being.(equip_slots defender) in
+		List.filter_map begin fun (_, thing) ->
+			match (Thing.in_combat thing) with
+			| Some ic when ic.In_combat.evasion != 0 || Thing.is_armour thing ->
+				Some (Some (Thing.name thing), ic.In_combat.evasion)
+			| _ -> None
+		end equips in
 	Roll.({
-		base = (Some "evasion", Being.(defender.skills.Skills.melee))::from_equip;
+		base = (Some "evasion", Being.(defender.skills.Skills.evasion))::from_equip;
 		dice = [None, d1d20];
 	})
 
-let calc_protection defender =
+let calc_damage (weapon_damage_label, weapon_damage) num_bonuses =
+	Roll.({
+		base = [];
+		dice =
+			[
+				weapon_damage_label,
+				Mod_dice.({
+					num = weapon_damage.num @ num_bonuses;
+					sides = weapon_damage.sides;
+				})
+			]
+	})
+
+let calc_protection equips =
 	let armour_dice =
-		List.filter_map begin fun equip_slot ->
-			Opt.flat_map begin fun thing ->
-				match Thing.(armour thing) with
+		List.flat_map begin fun (_, thing) ->
+			List.filter_map begin
+				function
 				| None -> None
 				| Some stats ->
 					Some (Some Thing.(name thing), Mod_dice.of_dice stats.Armour.protection)
-			end Being.(in_slot defender equip_slot)
-		end Being.(equip_slots defender) in
+			end Thing.([body_armour thing; shield thing; helm thing])
+		end equips in
 	Roll.({
 		base = [];
-		dice = armour_dice;
-	})
-
-let calc_damage attacker (weapon : Thing.t option) =
-	let weapon_damage, weapon_weight =
-		match weapon with
-		| None -> Dice.(make 0 0), 0.
-		| Some weapon ->
-			begin match Thing.(melee weapon) with
-			| Some c -> c.Weapon.damage, Thing.(weight weapon)
-			| None -> Dice.(make 0 0), 0.
-			end in
-	let strength_bonus =
-		match Thing.(bodyable Being.(body attacker)) with
-		| None -> 0
-		| Some b -> min (round_to_int weapon_weight) Bodyable.(b.str) in
-	let damage =
-		Mod_dice.({
-			num = [None, weapon_damage.Dice.num];
-			sides = [None, weapon_damage.Dice.sides; Some "strength", strength_bonus];
-		}) in
-	Roll.({
-		base = [];
-		dice = [None, damage];
+		dice =
+			match armour_dice with
+			| [] -> [Some "no armour", Mod_dice.of_dice Dice.zero]
+			| _ -> armour_dice;
 	})
 
 let melee_combat attacker defender rng =
-	let weapon =
-		let slots = List.filter (fun es -> es.Equip_slot.is_melee) Being.(equip_slots attacker) in
-		let weapons = List.filter_map Being.(in_slot attacker) slots in
+	let attacker_equips = Being.get_usable_equips attacker in
+	let defender_equips = Being.get_usable_equips defender in
+	let weapon, (weapon_accuracy, weapon_damage) =
+		let weapons =
+			List.filter_map begin fun (slot, thing) ->
+				if Thing.is_melee thing then Some (slot, thing)
+				else None
+			end attacker_equips in
 		match weapons with
-		| [] -> None
-		| _ -> Some (Rng.Uniform.list_elt weapons rng) in
-	let attack_roll = calc_attack attacker weapon in
-	let evasion_roll = calc_evasion defender in
+		| [] ->
+			None, no_weapon
+		| _ ->
+			let weapon_slot, weapon = Rng.Uniform.list_elt weapons rng in
+			Some weapon, (effective_weapon_equip attacker attacker_equips weapon_slot weapon) in
+	let attack_roll = calc_attack attacker weapon_accuracy in
+	let evasion_roll = calc_evasion defender defender_equips in
 	let attack_value = Roll.roll attack_roll rng in
 	let evasion_value = Roll.roll evasion_roll rng in
 	if evasion_value >= attack_value then begin
@@ -184,8 +259,17 @@ let melee_combat attacker defender rng =
 			}) in
 		None, result
 	end else begin
-		let damage_roll = calc_damage attacker weapon in
-		let protection_roll = calc_protection defender in
+		let dice_num_bonuses =
+			match weapon with
+			| None -> []
+			| Some weapon ->
+				let crit_fac = 7. +. Thing.weight weapon in
+				let crits = int_of_float (float_of_int (attack_value - evasion_value) /. crit_fac) in
+				if crits > 1 then [Some "criticals", crits]
+				else if crits == 1 then [Some "critical", crits]
+				else [] in
+		let damage_roll = calc_damage weapon_damage dice_num_bonuses in
+		let protection_roll = calc_protection defender_equips in
 		let damage_value = Roll.roll damage_roll rng in
 		let protection_value = Roll.roll protection_roll rng in
 		let result = Result.({

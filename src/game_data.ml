@@ -53,16 +53,20 @@ module In_combat =
 
 module Weapon =
 	struct
+		type handedness = One_handed | Hand_and_a_half | Two_handed
+
 		type t =
 			{
 				damage : Dice.t;
+				handedness : handedness;
 			}
 
 		let make
 			?(damage=Dice.zero)
+			?(handedness=One_handed)
 			()
 			=
-			{ damage }
+			{ damage; handedness }
 	end
 
 module Armour =
@@ -125,22 +129,20 @@ module Bodyable =
 
 module Equip_slot =
 	struct
+		type kind = Hand | Torso | Head
+
 		type t =
 			{
 				name : string;
-				is_melee : bool;
-				is_armour : bool;
-				affects_combat : bool;
+				kind : kind;
 			}
 
 		let make
 			~name
-			?(is_melee=false)
-			?(is_armour=false)
-			?(affects_combat=false)
+			~kind
 			()
 			=
-			{ name; is_melee; is_armour; affects_combat }
+			{ name; kind }
 	end
 
 module Thing_kind =
@@ -152,7 +154,9 @@ module Thing_kind =
 				weight : float;
 				in_combat : In_combat.t option;
 				melee : Weapon.t option;
-				armour : Armour.t option;
+				shield : Armour.t option;
+				body_armour : Armour.t option;
+				helm : Armour.t option;
 				blocks : bool;
 				equip_slots : Equip_slot.t list;
 				bodyable : Bodyable.t option;
@@ -164,13 +168,15 @@ module Thing_kind =
 			~weight
 			?in_combat
 			?melee
-			?armour
+			?shield
+			?body_armour
+			?helm
 			?(blocks=false)
 			?(equip_slots=[])
 			?bodyable
 			()
 			=
-			{ tile; name; weight; in_combat; melee; armour; blocks; equip_slots; bodyable }
+			{ tile; name; weight; in_combat; melee; shield; body_armour; helm; blocks; equip_slots; bodyable }
 	end
 
 module Terrain =

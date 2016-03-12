@@ -1,3 +1,4 @@
+open Std
 module Mapgen = Mapgen.Make(Game_data.Map)
 module Rng = Game_data.Rng
 open Game_data
@@ -59,7 +60,13 @@ let choose_stair_points ~max_tries map is_clear num_ups num_downs min_stair_dist
 		| _ -> Retry.Failed
 	end
 
-let rand_from_array = Rng.Empirical.array_elt ~weight:fst ~value:snd
+let rand_from_array =
+	Rng.Empirical.array_elt ~weight:fst ~value:snd
+
+let rand_from_maybe_empty_array array =
+	match array with
+	| [||] -> fun _ -> None
+	| _ -> fun rng -> Some (Rng.Empirical.array_elt ~weight:fst ~value:snd array rng)
 
 let make_stuff region up_stairs num is_clear normal_kinds unique_kinds rng =
 	let rand_kind = rand_from_array normal_kinds in
@@ -77,9 +84,11 @@ let make_stuff region up_stairs num is_clear normal_kinds unique_kinds rng =
 		incr i
 	end
 
-let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds =
+let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds =
 	let rand_weapon = rand_from_array use_weapon_kinds in
 	let rand_armour = rand_from_array use_armour_kinds in
+	let rand_shield = rand_from_maybe_empty_array use_shield_kinds in
+	let rand_helm = rand_from_maybe_empty_array use_helm_kinds in
 	fun being rng ->
 		let rec run num_tries =
 			if num_tries >= max_tries then ()
@@ -88,14 +97,26 @@ let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds =
 				let armour = Thing.(make (rand_armour rng)) in
 					let a = Being.(get being weapon) in
 					let b = Being.(get being armour) in
-					let c = Being.(equip being Equip_slots.melee_weapon weapon) in
-					let d = Being.(equip being Equip_slots.armour armour) in
+					let c = Being.(equip being Equip_slots.main_hand weapon) in
+					let d = Being.(equip being Equip_slots.torso armour) in
 				let ok =
 					a && b && c && d in
-				if ok then ()
-				else begin
-					ignore (Being.unequip being Equip_slots.melee_weapon);
-					ignore (Being.unequip being Equip_slots.armour);
+				if ok then begin
+					if Rng.Uniform.bool rng then
+						Opt.iter begin fun kind ->
+							let shield = Thing.(make kind) in
+							ignore (Being.get being shield);
+							ignore (Being.equip being Equip_slots.off_hand shield)
+						end (rand_shield rng);
+					if Rng.Uniform.bool rng then
+						Opt.iter begin fun kind ->
+							let helm = Thing.(make kind) in
+							ignore (Being.get being helm);
+							ignore (Being.equip being Equip_slots.head helm)
+						end (rand_helm rng)
+				end else begin
+					ignore (Being.unequip being Equip_slots.main_hand);
+					ignore (Being.unequip being Equip_slots.torso);
 					ignore (Being.lose being weapon);
 					ignore (Being.lose being armour);
 					run (num_tries + 1)
@@ -103,18 +124,18 @@ let equip_being ?(max_tries=10) use_weapon_kinds use_armour_kinds =
 			end in
 		run 0
 
-let make_creatures region num is_clear use_being_kind use_weapon_kinds use_armour_kinds rng =
+let make_creatures region num is_clear use_being_kind use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds rng =
 	let rand_kind = rand_from_array use_being_kind in
-	let equip = equip_being use_weapon_kinds use_armour_kinds in
+	let equip = equip_being use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds in
 	for_clear_points region.Region.map is_clear num rng begin fun p ->
 		let kind = rand_kind rng in
 		let being = Region.init_being region kind p in
 		equip being rng
 	end
 
-let make_player region at being_kind use_weapon_kinds use_armour_kinds rng =
+let make_player region at being_kind use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds rng =
 	let player = Region.init_being region being_kind at in
-	equip_being ~max_tries:100 use_weapon_kinds use_armour_kinds player rng;
+	equip_being ~max_tries:100 use_weapon_kinds use_armour_kinds use_shield_kinds use_helm_kinds player rng;
 	player
 
 let is_clear map p =
@@ -164,11 +185,11 @@ let make_region spec map_rng things_rng =
 		| Retry.Ok m -> m
 		| _ -> assert false in
 	Level_spec.(
-		let normal_kinds = Array.append spec.weapon_kinds spec.armour_kinds in
+		let normal_kinds = List.fold_left Array.append [||] [spec.weapon_kinds; spec.body_armour_kinds; spec.shield_kinds; spec.helm_kinds] in
 		let region =
 			Region.init map ups downs begin fun region ->
 				make_stuff region ups (map_area / 250) is_clear normal_kinds spec.unique_kinds things_rng;
-				make_creatures region (map_area / 200) is_clear spec.enemy_kinds spec.weapon_kinds spec.armour_kinds things_rng
+				make_creatures region (map_area / 200) is_clear spec.enemy_kinds spec.weapon_kinds spec.body_armour_kinds spec.shield_kinds spec.helm_kinds things_rng
 			end in
 		region
 	)
@@ -183,7 +204,7 @@ let init map_seed things_seed game_seed =
 	let init_player level_i region player_at =
 		let spec = level_specs.(level_i) in
 		Level_spec.(
-			make_player region player_at Thing_kinds.human spec.weapon_kinds spec.armour_kinds things_rng
+			make_player region player_at Thing_kinds.human spec.weapon_kinds spec.body_armour_kinds spec.shield_kinds spec.helm_kinds things_rng
 		) in
 	let check_win game =
 		match game.Game.player with

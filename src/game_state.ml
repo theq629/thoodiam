@@ -29,8 +29,34 @@ module Thing =
 		let melee thing =
 			thing.kind.melee
 
-		let armour thing =
-			thing.kind.armour
+		let body_armour thing =
+			thing.kind.body_armour
+
+		let shield thing =
+			thing.kind.shield
+
+		let helm thing =
+			thing.kind.helm
+
+		let is_melee thing =
+			thing.kind.melee <> None
+
+		let is_body_armour thing =
+			thing.kind.body_armour <> None
+
+		let is_shield thing =
+			thing.kind.shield <> None
+
+		let is_helm thing =
+			thing.kind.helm <> None
+
+		let is_weapon thing =
+			thing.kind.melee <> None
+
+		let is_armour thing =
+			thing.kind.body_armour <> None
+			|| thing.kind.helm <> None
+			|| thing.kind.shield <> None
 
 		let blocks thing =
 			thing.kind.blocks
@@ -44,6 +70,8 @@ module Thing =
 
 module Being =
 	struct
+		type weapon_state = No_weapon | One_handed | Two_handed | Need_hand
+
 		type t =
 			{
 				body : Thing.t;
@@ -134,4 +162,48 @@ module Being =
 				Some thing
 			with Not_found ->
 				None
+
+		let have_free_hand being =
+			List.exists begin fun slot ->
+				Equip_slot.(slot.kind = Hand) && not (List.mem_assoc slot being.equip)
+			end (Thing.equip_slots being.body)
+
+		let weapon_state being equip_slot =
+			try
+				let thing = List.assoc equip_slot being.equip in
+				match Thing.melee thing with
+				| None -> No_weapon
+				| Some m ->
+					begin match m.Weapon.handedness with
+					| Weapon.One_handed ->
+						One_handed
+					| Weapon.Hand_and_a_half -> 
+						if have_free_hand being then Two_handed
+						else One_handed
+					| Weapon.Two_handed -> 
+						if have_free_hand being then Two_handed
+						else Need_hand
+					end
+			with Not_found ->
+				No_weapon
+
+		let can_use being equip_slot =
+			try
+				let thing = List.assoc equip_slot being.equip in
+				Equip_slot.(match equip_slot.kind with
+				| Hand -> Thing.(is_weapon thing || is_shield thing)
+				| Torso -> Thing.(is_body_armour thing)
+				| Head -> Thing.(is_helm thing)
+				)
+			with Not_found ->
+				true
+
+		let get_usable_equips being =
+			List.filter_map begin fun equip_slot ->
+				if can_use being equip_slot then
+					Opt.flat_map begin fun thing ->
+						Some (equip_slot, thing)
+					end (in_slot being equip_slot)
+				else None
+			end (equip_slots being)
 	end
