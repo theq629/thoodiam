@@ -1,0 +1,30 @@
+set -e
+
+git diff --quiet && git diff --cached --quiet || (
+	echo "error: uncommitted changes" 1>&2
+	exit 1
+)
+
+name=$1
+
+[ "$name" ] || (
+	echo "error: need name" 1>&2
+	exit 1
+)
+
+out=thoodiam-$name
+pwd=$PWD
+
+tmp=$(mktemp -d)
+trap "rm -rf '$temp'" EXIT
+
+make clean
+make
+cp -r dist-files "$tmp/$out"
+awk 'BEGIN { y = 1 } /^Building$/ { y = 0 } y { print }' README.md > "$tmp/$out"/README.md
+cat dist-files/README.md >> "$tmp/$out"/README.md
+cp thoodiam_curses.native "$tmp/$out"
+(
+	cd "$tmp"
+	tar -cvzf "$pwd/$out.tar.gz" "$out"
+)
