@@ -200,15 +200,19 @@ let run map_seed things_seed game_seed skip_welcome =
 		if not skip_welcome then
 			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text input_to_string game_key_bindings popup_key_bindings) ui in
 	show_welcome ();
+	let ready = ref true in
 	Disp.input_loop disp begin fun key ->
 		update (Some key);
 		match !game.Game.status with
 		| Game.Playing -> ()
-		| status ->
+		| status when !ready ->
+			ready := false;
+			show_welcome ();
 			Ui.show_info "Game over" (Thoodiam_data.game_over_text status) ~extra_text:(Ui.make_death_help_text input_to_string game_key_bindings popup_key_bindings) ~on_finish:begin fun () ->
 				game := make_game ();
-				show_welcome ()
+				ready := true
 			end ui
+		| _ -> ()
 	end;
 	Js._false
 
