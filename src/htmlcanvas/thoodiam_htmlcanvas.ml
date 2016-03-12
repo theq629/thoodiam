@@ -205,7 +205,7 @@ let run map_seed things_seed game_seed skip_welcome =
 		match !game.Game.status with
 		| Game.Playing -> ()
 		| status ->
-			Ui.show_info "Game over" (Thoodiam_data.game_over_text status) ~on_finish:begin fun () ->
+			Ui.show_info "Game over" (Thoodiam_data.game_over_text status) ~extra_text:(Ui.make_death_help_text input_to_string game_key_bindings popup_key_bindings) ~on_finish:begin fun () ->
 				game := make_game ();
 				show_welcome ()
 			end ui

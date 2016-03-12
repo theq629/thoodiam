@@ -163,7 +163,7 @@ let run map_seed things_seed game_seed skip_welcome =
 				Ui.update_game game ui
 			| None -> ()
 		done;
-		Ui.show_info "Game over" (Thoodiam_data.game_over_text game.Game.status) ui
+		Ui.show_info "Game over" (Thoodiam_data.game_over_text game.Game.status) ~extra_text:(Ui.make_death_help_text char_int_to_string game_key_bindings popup_key_bindings) ui
 	end
 
 let _ =

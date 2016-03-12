@@ -81,22 +81,32 @@ module Make =
 			let s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" in
 			Array.init (String.length s) (fun i -> String.make 1 s.[i])
 
+		let uniq = List.fold_left (fun ys y -> if List.mem y ys then ys else y::ys) []
+
+		let key_to_string input_to_string =
+			function
+			| None -> "{no key}"
+			| Some i -> input_to_string i
+
 		let make_intro_help_text input_to_string game_key_bindings popup_key_bindings =
-			let uniq = List.fold_left (fun ys y -> if List.mem y ys then ys else y::ys) [] in
-			let to_str =
-				function
-				| None -> "{no key}"
-				| Some i -> input_to_string i in
+			let key_to_string = key_to_string input_to_string in
 			let help_keys = List.filter_map begin fun b ->
 					match Key_bindings.get_inv b Key.Help with
-					| Some _ as oi -> Some (to_str oi)
+					| Some _ as oi -> Some (key_to_string oi)
 					| None -> None
 				end [game_key_bindings; popup_key_bindings] in
 			[
 				Printf.sprintf "press %s to continue"
-					(to_str (Key_bindings.get_inv popup_key_bindings Key.Finish));
+					(key_to_string (Key_bindings.get_inv popup_key_bindings Key.Finish));
 				Printf.sprintf "press %s to get help"
 					(English.strings_list_bare "or" "{no key}" (uniq help_keys));
+			]
+
+		let make_death_help_text input_to_string game_key_bindings popup_key_bindings =
+			let key_to_string = key_to_string input_to_string in
+			[
+				Printf.sprintf "press %s to continue"
+					(key_to_string (Key_bindings.get_inv popup_key_bindings Key.Finish));
 			]
 
 		type message =
