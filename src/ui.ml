@@ -705,9 +705,9 @@ module Make =
 					do_cmd Action.(Drop thing)
 				end
 			| Pick_up ->
-				do_pick_up "Get" (fun _ -> true)
+				do_pick_up "Pick up" (fun _ -> true)
 			| Smart_pick_up ->
-				do_pick_up "Get throwables" ~start_sel_all:true (fun t -> Thing.is_throwing t)
+				do_pick_up "Pick up throwables" ~start_sel_all:true (fun t -> Thing.is_throwing t)
 			| Up_stairs -> begin
 					if List.mem player.Being.at game.Game.region.Region.up_stairs then begin
 						if game.Game.on_level > 0 then begin
