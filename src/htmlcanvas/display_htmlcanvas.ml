@@ -207,6 +207,7 @@ let on_refresh disp f =
 
 let input_loop disp f =
 	let on_key event =
+		Dom.preventDefault event;
 		begin match disp.key_handler with
 		| None -> ()
 		| Some f ->
