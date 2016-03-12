@@ -54,7 +54,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"short sword"
-				~weight:2.
+				~weight:1.5
 				~in_combat:In_combat.(make ~evasion:1 ())
 				~melee:Weapon.(make ~damage:(Dice.make 1 7) ())
 				()
@@ -81,7 +81,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"greatsword"
-				~weight:5.
+				~weight:7.
 				~in_combat:In_combat.(make ~accuracy:(-1) ~evasion:1 ())
 				~melee:Weapon.(make ~damage:(Dice.make 3 5) ())
 				()
@@ -90,7 +90,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"spear"
-				~weight:2.
+				~weight:3.
 				~in_combat:In_combat.(make ~accuracy:(-1) ())
 				~melee:Weapon.(make ~damage:(Dice.make 1 9) ())
 				()
@@ -99,7 +99,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"great spear"
-				~weight:3.
+				~weight:6.
 				~in_combat:In_combat.(make ~accuracy:(-1) ~evasion:1 ())
 				~melee:Weapon.(make ~damage:(Dice.make 3 13) ())
 				()
@@ -108,7 +108,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"glaive"
-				~weight:4.
+				~weight:7.
 				~in_combat:In_combat.(make ~accuracy:(-2) ~evasion:1 ())
 				~melee:Weapon.(make ~damage:(Dice.make 2 9) ())
 				()
@@ -117,7 +117,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"battle axe"
-				~weight:4.
+				~weight:4.5
 				~in_combat:In_combat.(make ~accuracy:(-3) ())
 				~melee:Weapon.(make ~damage:(Dice.make 3 4) ())
 				()
@@ -126,7 +126,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"battle axe"
-				~weight:5.
+				~weight:10.
 				~in_combat:In_combat.(make ~accuracy:(-4) ~evasion:1 ())
 				~melee:Weapon.(make ~damage:(Dice.make 5 5) ())
 				()
@@ -135,7 +135,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"quarterstaff"
-				~weight:1.
+				~weight:4.
 				~in_combat:In_combat.(make ~evasion:2 ())
 				~melee:Weapon.(make ~damage:(Dice.make 2 3) ())
 				()
@@ -153,7 +153,7 @@ module Thing_kinds =
 			make
 				~tile:'/'
 				~name:"great hammer"
-				~weight:5.
+				~weight:10.
 				~in_combat:In_combat.(make ~accuracy:(-2) ())
 				~melee:Weapon.(make ~damage:(Dice.make 4 1) ())
 				()
