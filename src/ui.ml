@@ -635,8 +635,10 @@ module Make =
 					else do_cmd Action.(Move dir)
 				| Some p ->
 					let p1 = Vec.(p + Direction.to_vec dir) in
-					let p2 = closest_point p1 (List.filter (fun p3 -> p3 != p) ui.targetable_points) in
-					ui.target <- p2 in
+					match closest_point p1 (List.filter (fun p3 -> p3 != p) ui.targetable_points) with
+					| None -> ()
+					| Some new_target ->
+						ui.target <- Some new_target in
 			Key.(match key with
 			| N -> movement Direction.N
 			| S -> movement Direction.S

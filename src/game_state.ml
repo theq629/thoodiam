@@ -102,7 +102,7 @@ module Being =
 				| Some b ->
 					Bodyable.(
 						round_to_int (scale_stat 2. b.con),
-						scale_stat 4. b.str,
+						scale_stat 8. b.str,
 						b.def_skills
 					) in
 			{

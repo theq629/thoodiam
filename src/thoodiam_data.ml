@@ -452,6 +452,7 @@ let level_specs =
 			~enemy_kinds:[|
 					(5, 7), goblin;
 					(5, 7), kobold;
+					(0, 1), orc;
 				|]
 			()
 		);
@@ -481,7 +482,7 @@ let level_specs =
 					1., great_helm;
 				|]
 			~enemy_kinds:[|
-					(4, 5), goblin;
+					(4, 7), goblin;
 					(4, 5), kobold;
 					(1, 3), orc;
 				|]
@@ -518,10 +519,10 @@ let level_specs =
 					2., great_helm;
 				|]
 			~enemy_kinds:[|
-					(1, 4), goblin;
-					(1, 4), kobold;
-					(1, 4), orc;
-					(1, 1), ogre;
+					(1, 5), goblin;
+					(1, 5), kobold;
+					(2, 4), orc;
+					(1, 2), ogre;
 				|]
 			()
 		);
@@ -559,8 +560,8 @@ let level_specs =
 			~enemy_kinds:[|
 					(1, 4), goblin;
 					(1, 4), kobold;
-					(1, 4), orc;
-					(1, 2), ogre;
+					(3, 5), orc;
+					(2, 3), ogre;
 					(1, 1), giant;
 				|]
 			~unique_kinds:[|
