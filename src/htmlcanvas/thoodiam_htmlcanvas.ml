@@ -176,7 +176,12 @@ let update_game disp ui game key =
 
 let run map_seed things_seed game_seed skip_welcome =
 	let make_game () =
-		Thoodiam.init map_seed things_seed game_seed in
+		let time = int_of_float ((jsnew Js.date_now ())##getTime ()) in
+		let use_seed =
+			function
+			| Some s -> s
+			| None -> time in
+		Thoodiam.init (use_seed map_seed) (use_seed things_seed) (use_seed game_seed) in
 	let game = ref (make_game ()) in
 	let disp = Disp.init Dom_html.document##body in
 	let ui_styles, extra_styles = make_styles disp in
@@ -231,16 +236,15 @@ let parse_url_params params url =
 
 let _ =
 	Dom_html.window##onload <- Dom_html.handler begin fun _ ->
-			let time = int_of_float ((jsnew Js.date_now ())##getTime ()) in
-			let map_seed = ref time in
-			let things_seed = ref time in
-			let game_seed = ref time in
+			let map_seed = ref None in
+			let things_seed = ref None in
+			let game_seed = ref None in
 			let skip_welcome = ref false in
 			parse_url_params [
-					"seed", (fun s -> let s = int_of_string s in map_seed := s; things_seed := s; game_seed := s);
-					"mapseed", (fun s -> map_seed := int_of_string s);
-					"thingsseed", (fun s -> things_seed := int_of_string s);
-					"gameseed", (fun s -> game_seed := int_of_string s);
+					"seed", (fun s -> let s = int_of_string s in map_seed := Some s; things_seed := Some s; game_seed := Some s);
+					"mapseed", (fun s -> map_seed := Some (int_of_string s));
+					"thingsseed", (fun s -> things_seed := Some (int_of_string s));
+					"gameseed", (fun s -> game_seed := Some (int_of_string s));
 					"skipwelcome", (fun _ -> skip_welcome := true);
 				] (Js.to_string (Dom_html.window##location##href));
 			run !map_seed !things_seed !game_seed !skip_welcome
