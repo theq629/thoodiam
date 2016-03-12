@@ -146,11 +146,12 @@ let do_popup disp extra_styles parent_win ?(is_list=false) ?(show_help=true) ui 
 		let ui_key = Key_bindings.get key_bindings (Disp.get_key disp) in
 		match ui_key with
 		| Some Ui.Key.Help when show_help ->
-			Ui.show_key_bindings key_bindings ui
-		| _ ->
-			if callback ui_key then begin
+			Ui.show_key_bindings key_bindings ui;
+			if callback None then
 				run ()
-			end else () in
+		| _ ->
+			if callback ui_key then
+				run () in
 	run ();
 	Disp.Window.remove win
 
