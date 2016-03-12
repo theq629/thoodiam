@@ -23,13 +23,17 @@ module Dice =
 		let to_string dice =
 			Printf.sprintf "%id%i" dice.num dice.sides
 
-		let roll dice rng =
-			let rec run sum i =
-				if i <= 0 then sum
-				else
-					let roll = 1 + Rng.Uniform.int 0 dice.sides rng in
-					run (sum + roll) (i - 1) in
-			run 0 dice.num
+		let roll dice =
+			if dice.sides == 0 then
+				fun _ -> 0
+			else
+				fun rng ->
+					let rec run sum i =
+						if i <= 0 then sum
+						else
+							let roll = 1 + Rng.Uniform.int 0 dice.sides rng in
+							run (sum + roll) (i - 1) in
+					run 0 dice.num
 
 		let is_zero d =
 			d.num == 0 || d.sides == 0
