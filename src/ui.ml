@@ -35,10 +35,12 @@ module Make =
 				type t =
 					| N | S | E | W | NE | NW | SE | SW
 					| Pick_up
+					| Smart_pick_up
 					| Inventory
 					| Equipment
 					| Drop
 					| Throw
+					| Smart_throw
 					| Next_target
 					| Accept_target
 					| Cancel_target
@@ -66,10 +68,12 @@ module Make =
 					| SE -> "south east"
 					| SW -> "south west"
 					| Pick_up -> "pick up"
+					| Smart_pick_up -> "pick up throwables"
 					| Inventory -> "inventory"
 					| Equipment -> "equipment"
 					| Drop -> "drop"
 					| Throw -> "throw"
+					| Smart_throw -> "throw throwables"
 					| Next_target -> "next target"
 					| Accept_target -> "accept target"
 					| Cancel_target -> "cancel targeting"
@@ -222,12 +226,14 @@ module Make =
 
 		let string_of_thing_seen = string_of_thing_inv
 
-		let string_of_thing_throwable being thing =
+		let string_of_thing_throwable ?min_dist being thing =
 			Thing.(
-				Printf.sprintf "%s%s [range:%0.2f]"
+				let range = Being.throw_range being thing in
+				Printf.sprintf "%s%s [range:%0.2f]%s"
 					(string_of_thing_inv thing)
 					(if is_throwing thing then " [throwable]" else "")
-					(Being.throw_range being thing)
+					range
+					(match min_dist with Some md when md <= range -> " [in range]" | _ -> "")
 			)
 
 		let string_of_slot being equip_slot =
@@ -331,10 +337,11 @@ module Make =
 				continue
 			end
 
-		let show_list ?(show_help) title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
+		let show_list ?(show_help) ?(start_sel_all=false) title to_string list ?(multiple=false) ?(select=true) ?(repeat=false) ui f =
 			let start_i = ref 0 in
-			let sel = ref [] in
 			let len = List.length list in
+			let all_indices = List.init len (fun i -> i) in
+			let sel = ref (if start_sel_all then all_indices else []) in
 			let max_id_len = Array.fold_left (fun m k -> max m (String.length k)) 0 ui.list_ids in
 			ui.do_popup ?show_help ui begin fun view key ->
 				let page_size = min (Array.length ui.list_ids) (let _, dimy = D.Text_view.dim view in dimy - 3) in
@@ -359,7 +366,7 @@ module Make =
 						if List.length !sel >= len then
 							sel := []
 						else
-							sel := List.init len (fun i -> i)
+							sel := all_indices
 					| List_item i ->
 						if select then begin
 							let i1 = !start_i + i in
@@ -595,28 +602,36 @@ module Make =
 				if not (List.is_empty things_here) then
 					ui.messages <- (See_here things_here) :: ui.messages
 
+		let points_dist p1 p2 = 
+			Vec.(dist (float_of_int p1) (float_of_int p2))
+
 		let closest_point p points =
 			fst @@ List.fold_left begin fun (_, best_dist as best) point ->
-				let dist = Vec.(dist (float_of_int point) (float_of_int p)) in
+				let dist = points_dist point p in
 				if dist < best_dist then (Some point, dist)
 				else best
 			end (None, infinity) points
+
+		let targets_in_range game player max_range =
+			List.filter_map begin fun b ->
+				let p = b.Being.at in
+				if points_dist player.Being.at p < max_range then Some p
+				else None
+			end Game.(game.player_info.Player_info.fov_beings)
+
+		let min_target_dist game player =
+			List.fold_left (fun d p -> min d (points_dist p player.Being.at)) infinity (targets_in_range game player infinity)
 
 		let handle_player_input game player key_bindings ui key do_cmd =
 			let start_target max_range reason =
 				let targetable_points =
 					begin
-						let ps = List.filter_map begin fun b ->
-								let p = b.Being.at in
-								if Vec.(dist (float_of_int player.Being.at) (float_of_int p)) < max_range then Some p
-								else None
-							end Game.(game.player_info.Player_info.fov_beings) in
 						List.sort begin fun (x1, y1) (x2, y2) ->
 							let a = x1 - x2 in
 							if a != 0 then a
 							else
 								y1 - y2
-						end ps
+						end (targets_in_range game player max_range)
 					end in
 				match targetable_points with
 				| [] ->
@@ -641,6 +656,17 @@ module Make =
 					| None -> ()
 					| Some new_target ->
 						ui.target <- Some new_target in
+			let do_pick_up title ?start_sel_all pred =
+				let at = player.Being.at in
+				let things = Game.(Region.(((Map.get game.region.map at).Cell.things))) in
+				begin match List.filter (fun t -> t != player.Being.body && pred t) things with
+				| [] -> ()
+				| [t] -> do_cmd Action.(Pick_up t)
+				| ts ->
+					show_list title string_of_thing_inv ts ?start_sel_all ~multiple:true ui begin fun thing ->
+						do_cmd Action.(Pick_up thing)
+					end
+				end in
 			Key.(match key with
 			| N -> movement Direction.N
 			| S -> movement Direction.S
@@ -679,16 +705,9 @@ module Make =
 					do_cmd Action.(Drop thing)
 				end
 			| Pick_up ->
-				let at = player.Being.at in
-				let things = Game.(Region.(((Map.get game.region.map at).Cell.things))) in
-				begin match List.filter (fun t -> t != player.Being.body) things with
-				| [] -> ()
-				| [t] -> do_cmd Action.(Pick_up t)
-				| ts ->
-					show_list "Get" string_of_thing_inv ts ~multiple:true ui begin fun thing ->
-						do_cmd Action.(Pick_up thing)
-					end
-				end
+				do_pick_up "Get" (fun _ -> true)
+			| Smart_pick_up ->
+				do_pick_up "Get throwables" ~start_sel_all:true (fun t -> Thing.is_throwing t)
 			| Up_stairs -> begin
 					if List.mem player.Being.at game.Game.region.Region.up_stairs then begin
 						if game.Game.on_level > 0 then begin
@@ -707,7 +726,18 @@ module Make =
 						do_cmd Action.(Take_stairs Down)
 				end
 			| Throw ->
-				show_list "Thing to throw" (string_of_thing_throwable player) Being.(inv player) ~multiple:true ui begin fun thing ->
+				let min_dist = min_target_dist game player in
+				show_list "Thing to throw" (string_of_thing_throwable ~min_dist player) Being.(inv player) ~multiple:true ui begin fun thing ->
+					start_target (Being.throw_range player thing) (Want_throw thing)
+				end
+			| Smart_throw ->
+				let min_dist = min_target_dist game player in
+				let useful_inv =
+					List.filter begin fun thing ->
+						Thing.is_throwing thing
+						&& Being.throw_range player thing >= min_dist
+					end Being.(inv player) in
+				show_list "Thing to throw (throwables in range)" (string_of_thing_throwable ~min_dist player) useful_inv ~multiple:true ui begin fun thing ->
 					start_target (Being.throw_range player thing) (Want_throw thing)
 				end
 			| Next_target ->

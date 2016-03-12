@@ -76,10 +76,12 @@ let game_key_bindings =
 		bind b (int_of_char 'n') SE;
 		bind b (int_of_char '.') Wait;
 		bind b (int_of_char 'g') Pick_up;
+		bind b (int_of_char 'G') Smart_pick_up;
 		bind b (int_of_char 'i') Inventory;
 		bind b (int_of_char 'e') Equipment;
 		bind b (int_of_char 'd') Drop;
 		bind b (int_of_char 't') Throw;
+		bind b (int_of_char 'T') Smart_throw;
 		bind b (int_of_char '\t') Next_target;
 		bind b 10 Accept_target;
 		bind b 27 Cancel_target;

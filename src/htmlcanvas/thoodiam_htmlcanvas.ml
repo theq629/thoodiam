@@ -85,10 +85,12 @@ let game_key_bindings =
 		bind b (false, 78) SE;
 		bind b (false, 190) Wait;
 		bind b (false, 71) Pick_up;
+		bind b (true, 71) Smart_pick_up;
 		bind b (false, 73) Inventory;
 		bind b (false, 69) Equipment;
 		bind b (false, 68) Drop;
 		bind b (false, 84) Throw;
+		bind b (true, 84) Smart_throw;
 		bind b (true, 56) Next_target;
 		bind b (false, 13) Accept_target;
 		bind b (false, 27) Cancel_target;
