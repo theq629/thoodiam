@@ -104,12 +104,11 @@ let set_level game level_i =
 		game.ai <- Ai.make region;
 		game.player_info <-
 			try List.assoc level_i game.saved_player_info
-			with Not_found -> Player_info.make region
-	end;
-	(* TODO: probably don't need this? *)
-	Opt.iter begin fun player ->
-		update_vision game.region game.player_info player
-	end game.player
+			with Not_found ->
+				let player_info = Player_info.make region in
+				game.saved_player_info <- (level_i, player_info)::game.saved_player_info;
+				player_info
+	end
 
 let make make_level init_player check_win rng =
 	let first_level_i = 0 in
