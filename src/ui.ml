@@ -104,25 +104,25 @@ module Make =
 			| None -> "{no key}"
 			| Some i -> input_to_string i
 
-		let make_intro_help_text input_to_string game_key_bindings popup_key_bindings =
+		let make_intro_help_text input_to_string cur_key_bindings all_key_bindings =
 			let key_to_string = key_to_string input_to_string in
 			let help_keys = List.filter_map begin fun b ->
 					match Key_bindings.get_inv b Key.Help with
 					| Some _ as oi -> Some (key_to_string oi)
 					| None -> None
-				end [game_key_bindings; popup_key_bindings] in
+				end all_key_bindings in
 			[
 				Printf.sprintf "press %s to continue"
-					(key_to_string (Key_bindings.get_inv popup_key_bindings Key.Finish));
+					(key_to_string (Key_bindings.get_inv cur_key_bindings Key.Finish));
 				Printf.sprintf "press %s to get help"
 					(English.strings_list_bare "or" "{no key}" (uniq help_keys));
 			]
 
-		let make_death_help_text input_to_string game_key_bindings popup_key_bindings =
+		let make_death_help_text input_to_string cur_key_bindings =
 			let key_to_string = key_to_string input_to_string in
 			[
 				Printf.sprintf "press %s to continue"
-					(key_to_string (Key_bindings.get_inv popup_key_bindings Key.Finish));
+					(key_to_string (Key_bindings.get_inv cur_key_bindings Key.Finish));
 			]
 
 		type message =
@@ -142,7 +142,7 @@ module Make =
 				mutable target : Map.Location.t option;
 				mutable last_target : Map.Location.t option;
 				mutable targetable_points : Map.Location.t list; 
-				do_popup : ?show_help:bool -> 'a t -> (D.Text_view.t -> Key.t option -> bool) -> unit;
+				do_popup : ?is_list:bool -> ?show_help:bool -> 'a t -> (D.Text_view.t -> Key.t option -> bool) -> unit;
 				styles : Styles.t;
 				list_ids : string array;
 				mutable messages : message list;
@@ -343,7 +343,7 @@ module Make =
 			let all_indices = List.init len (fun i -> i) in
 			let sel = ref (if start_sel_all then all_indices else []) in
 			let max_id_len = Array.fold_left (fun m k -> max m (String.length k)) 0 ui.list_ids in
-			ui.do_popup ?show_help ui begin fun view key ->
+			ui.do_popup ~is_list:true ?show_help ui begin fun view key ->
 				let page_size = min (Array.length ui.list_ids) (let _, dimy = D.Text_view.dim view in dimy - 3) in
 				let continue = ref true in
 				let go () =

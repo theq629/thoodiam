@@ -101,7 +101,7 @@ let game_key_bindings =
 		b
 	))
 
-let popup_key_bindings =
+let list_key_bindings =
 	let module Ch_map = Map.Make(struct type t = int;; let compare = compare;; end) in
 	let list_id_set, _ =
 		Array.fold_left begin fun (m, i) str ->
@@ -116,8 +116,6 @@ let popup_key_bindings =
 		bind b (false, 32) Page_down;
 		bind b (false, 9) Sel_all;
 		bind b (true, 56) Sel_all;
-		bind b (false, 89) Yes;
-		bind b (false, 78) No;
 		other b "[a-zA-Z]" "list item" begin fun (is_shift, key_code) ->
 				let use_key_code =
 					key_code
@@ -132,19 +130,36 @@ let popup_key_bindings =
 		b
 	))
 
+let other_key_bindings =
+	Key_bindings.(Ui.Key.(
+		let b = make () in
+		bind b (false, 13) Finish;
+		bind b (false, 27) Finish;
+		bind b (false, 219) Page_up;
+		bind b (false, 221) Page_down;
+		bind b (false, 32) Page_down;
+		bind b (false, 89) Yes;
+		bind b (false, 78) No;
+		bind b (true, 191) Help;
+		b
+	))
+
 let make_ui ui_styles extra_styles disp update_queue =
 	let root = Disp.root disp in
 	let panel_win, rest_win = Disp.Window.split_fix disp root Disp.Horiz Disp.First (round_to_int (Disp.Text_view.width_with_font Ui.panel_width)) in
 	let map_win, status_win = Disp.Window.split_fix disp rest_win Disp.Vert Disp.Second (round_to_int (Disp.Text_view.height_with_font Ui.status_height)) in
-	let do_popup ?(show_help=true) ui f =
+	let do_popup ?(is_list=false) ?(show_help=true) ui f =
 		let win = Disp.Window.make disp map_win (0, 0) (Disp.Window.dim map_win) in
 		let view = Disp.Text_view.make disp win in
 		Disp.Text_view.config ~bg:extra_styles.Styles.popup_bg view;
+		let key_bindings =
+			if is_list then list_key_bindings
+			else other_key_bindings in
 		let update key =
-			let ui_key = Opt.flat_map (Key_bindings.get popup_key_bindings) key in
+			let ui_key = Opt.flat_map (Key_bindings.get key_bindings) key in
 			match ui_key with
 			| Some Ui.Key.Help when show_help ->
-				Ui.show_key_bindings popup_key_bindings ui
+				Ui.show_key_bindings key_bindings ui
 			| _ ->
 				if f view ui_key then ()
 				else begin
@@ -206,7 +221,7 @@ let run map_seed things_seed game_seed skip_welcome =
 	end;
 	let show_welcome () =
 		if not skip_welcome then
-			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text input_to_string game_key_bindings popup_key_bindings) ui in
+			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text input_to_string other_key_bindings [game_key_bindings; list_key_bindings; other_key_bindings]) ui in
 	show_welcome ();
 	let ready = ref true in
 	Disp.input_loop disp begin fun key ->
@@ -216,7 +231,7 @@ let run map_seed things_seed game_seed skip_welcome =
 		| status when !ready ->
 			ready := false;
 			show_welcome ();
-			Ui.show_info "Game over" (Thoodiam_data.game_over_text status) ~extra_text:(Ui.make_death_help_text input_to_string game_key_bindings popup_key_bindings) ~on_finish:begin fun () ->
+			Ui.show_info "Game over" (Thoodiam_data.game_over_text status) ~extra_text:(Ui.make_death_help_text input_to_string other_key_bindings) ~on_finish:begin fun () ->
 				game := make_game ();
 				ready := true
 			end ui

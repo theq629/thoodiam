@@ -92,7 +92,7 @@ let game_key_bindings =
 		b
 	))
 
-let popup_key_bindings =
+let list_key_bindings =
 	let module Ch_map = Map.Make(struct type t = int;; let compare = compare;; end) in
 	let list_id_set, _ =
 		Array.fold_left begin fun (m, i) str ->
@@ -107,9 +107,8 @@ let popup_key_bindings =
 		bind b (int_of_char ' ') Page_down;
 		bind b (int_of_char '\t') Sel_all;
 		bind b (int_of_char '*') Sel_all;
-		bind b (int_of_char 'y') Yes;
-		bind b (int_of_char 'n') No;
 		other b "[a-zA-Z]" "list item" begin fun ch ->
+Printf.eprintf "key %i\n" ch;
 				match Ch_map.get ch list_id_set with
 				| Some i ->
 					Some (List_item i)
@@ -120,17 +119,34 @@ let popup_key_bindings =
 		b
 	))
 
-let do_popup disp extra_styles parent_win ?(show_help=true) ui f =
+let other_key_bindings =
+	Key_bindings.(Ui.Key.(
+		let b = make () in
+		bind b 10 Finish;
+		bind b 27 Finish;
+		bind b (int_of_char '[') Page_up;
+		bind b (int_of_char ']') Page_down;
+		bind b (int_of_char ' ') Page_down;
+		bind b (int_of_char 'y') Yes;
+		bind b (int_of_char 'n') No;
+		bind b (int_of_char '?') Help;
+		b
+	))
+
+let do_popup disp extra_styles parent_win ?(is_list=false) ?(show_help=true) ui f =
 	let win = Disp.Window.make disp parent_win (0, 0) (Disp.Window.dim parent_win) in
 	let view = Disp.Text_view.make disp win in
 	Disp.Text_view.config ~bg_style:extra_styles.Styles.popup_bg view;
 	let callback = f view in
 	ignore (callback None);
+	let key_bindings =
+		if is_list then list_key_bindings
+		else other_key_bindings in
 	let rec run () =
-		let ui_key = Key_bindings.get popup_key_bindings (Disp.get_key disp) in
+		let ui_key = Key_bindings.get key_bindings (Disp.get_key disp) in
 		match ui_key with
 		| Some Ui.Key.Help when show_help ->
-			Ui.show_key_bindings popup_key_bindings ui
+			Ui.show_key_bindings key_bindings ui
 		| _ ->
 			if callback ui_key then begin
 				run ()
@@ -161,7 +177,7 @@ let run map_seed things_seed game_seed skip_welcome =
 		let ui_styles, extra_styles = make_styles disp in
 		let ui = make_ui ui_styles extra_styles disp in
 		if not skip_welcome then
-			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text char_int_to_string game_key_bindings popup_key_bindings) ui;
+			Ui.show_info "Thoodiam" Thoodiam_data.welcome_text ~extra_text:(Ui.make_intro_help_text char_int_to_string other_key_bindings [game_key_bindings; list_key_bindings; other_key_bindings]) ui;
 		while Game.(game.status == Playing) do
 			Ui.draw ui disp game;
 			match Key_bindings.get game_key_bindings (Disp.get_key disp) with
@@ -172,7 +188,7 @@ let run map_seed things_seed game_seed skip_welcome =
 				Ui.update_game game ui
 			| None -> ()
 		done;
-		Ui.show_info "Game over" (Thoodiam_data.game_over_text game.Game.status) ~extra_text:(Ui.make_death_help_text char_int_to_string game_key_bindings popup_key_bindings) ui
+		Ui.show_info "Game over" (Thoodiam_data.game_over_text game.Game.status) ~extra_text:(Ui.make_death_help_text char_int_to_string other_key_bindings) ui
 	end
 
 let _ =
