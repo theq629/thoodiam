@@ -220,6 +220,8 @@ module Make =
 				Printf.sprintf "%s %0.2f" (string_of_thing thing) Thing.(weight thing)
 			)
 
+		let string_of_thing_seen = string_of_thing_inv
+
 		let string_of_thing_throwable being thing =
 			Thing.(
 				Printf.sprintf "%s%s [range:%0.2f]"
@@ -427,7 +429,7 @@ module Make =
 			| Left -> "You lost by leaving the dungeon!"
 			| Won -> "You have won!"
 			| Nothing_in_range -> "Nothing is in range."
-			| See_here t -> p "There is %s here." (English.strings_list (List.map string_of_thing t))
+			| See_here t -> p "There is %s here." (English.strings_list (List.map string_of_thing_seen t))
 
 		let draw_panel styles game view =
 			D.Text_view.clear view;
