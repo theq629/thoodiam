@@ -15,6 +15,19 @@ let remove_from_list xs x =
 	(* TODO: faster? *)
 	!found, xs1
 
+let remove_from_list_q xs x =
+	let found = ref false in
+	let xs1 = List.filter begin fun y ->
+			if x == y then begin
+				found := true;
+				false
+			end else
+				true
+		end xs in
+	(* TODO: faster? *)
+	!found, xs1
+
+
 let rec list_index x =
 	let rec run i =
 		function

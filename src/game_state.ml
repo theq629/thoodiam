@@ -144,7 +144,7 @@ module Being =
 			List.mem thing being.inv
 
 		let lose being thing =
-			let found, inv1 = remove_from_list being.inv thing in
+			let found, inv1 = remove_from_list_q being.inv thing in
 			if found then begin
 				being.inv <- inv1;
 				being.inv_weight <- being.inv_weight -. thing.Thing.kind.Thing_kind.weight;
@@ -154,7 +154,7 @@ module Being =
 
 		let equip being equip_slot thing =
 			if List.mem equip_slot being.body.Thing.kind.Thing_kind.equip_slots && not (List.mem_assoc equip_slot being.equip) then begin
-				let found, inv1 = remove_from_list being.inv thing in
+				let found, inv1 = remove_from_list_q being.inv thing in
 				if found then begin
 					being.inv <- inv1;
 					being.equip <- (equip_slot, thing)::being.equip;

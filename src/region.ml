@@ -88,7 +88,7 @@ let add_thing region p thing =
 
 let remove_thing region p thing =
 	let cell = Map.get region.map p in
-	let found, things1 = remove_from_list cell.Cell.things thing in
+	let found, things1 = remove_from_list_q cell.Cell.things thing in
 	cell.Cell.things <- things1;
 	found
 
@@ -111,7 +111,7 @@ let init_being region body_kind at =
 
 let remove_being region being =
 	let found_thing = remove_thing region being.Being.at being.Being.body in
-	let found_being, beings1 = remove_from_list region.beings being in
+	let found_being, beings1 = remove_from_list_q region.beings being in
 	region.event_queue <- Event_queue.filter (function (_, Being_action b) -> b != being | _ -> true) region.event_queue;
 	region.beings <- beings1;
 	found_thing && found_being
