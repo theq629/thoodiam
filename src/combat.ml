@@ -127,7 +127,7 @@ let d1d20 =
 		sides = [None, 20];
 	})
 
-let effective_weapon_equip being equips weapon_slot weapon =
+let effective_weapon_equip ?(weight_div=1.) ~skill_label ~get_skill ~get_weapon_stats being equips ?weapon_slot weapon =
 	let accuracy_from_equip =
 		List.filter_map begin fun (_, thing) ->
 			match Thing.in_combat thing with
@@ -139,36 +139,40 @@ let effective_weapon_equip being equips weapon_slot weapon =
 		match Thing.(bodyable Being.(body being)) with
 		| None -> 0
 		| Some b -> Bodyable.(b.str) in
-	let make_dice melee strength_label weight strength_extra =
+	let make_dice stats strength_label weight strength_extra =
 		let strength_bonus = min (int_of_float weight) strength in
 		let strength_factors =
 			if strength_bonus != 0 then [Some strength_label, strength_bonus]
 			else [] in
 		Mod_dice.(Weapon.({
-			num = [None, melee.damage.Dice.num];
-			sides = (None, melee.damage.Dice.sides)::(strength_factors @ strength_extra);
+			num = [None, stats.damage.Dice.num];
+			sides = (None, stats.damage.Dice.sides)::(strength_factors @ strength_extra);
 		})) in
+	let weight = Thing.weight weapon /. weight_div in
 	let damage =
-		match Thing.(melee weapon) with
-		| None ->
+		match get_weapon_stats weapon, weapon_slot with
+		| None, _ ->
 			Some "no weapon", Mod_dice.of_dice Dice.zero
-		| Some melee ->
+		| Some stats, Some weapon_slot ->
 			Being.(match weapon_state being weapon_slot with
 			| No_weapon ->
 				Some "no weapon", Mod_dice.of_dice Dice.zero
 			| Need_hand ->
 				Some "can't use weapon", Mod_dice.of_dice Dice.zero
 			| One_handed ->
-				Some Thing.(name weapon), make_dice melee "strength" Thing.(weight weapon) []
-			| Two_handed when Weapon.(melee.handedness = Hand_and_a_half) ->
-				Some Thing.(name weapon), make_dice melee "strength" Thing.(weight weapon) [Some "hand-and-a-half", 2]
+				Some Thing.(name weapon), make_dice stats "strength" weight []
+			| Two_handed when Weapon.(stats.handedness = Hand_and_a_half) ->
+				Some Thing.(name weapon), make_dice stats "strength" weight [Some "hand-and-a-half", 2]
 			| Two_handed ->
 				let use_weight = Thing.weight weapon /. 1.5 in
-				Some Thing.(name weapon), make_dice melee "two-handed strength" use_weight []
-			) in
+				Some Thing.(name weapon), make_dice stats "two-handed strength" use_weight []
+			)
+		| Some stats, _ ->
+			Some Thing.(name weapon), make_dice stats "strength" weight [] in
 	(
-		(Some "melee", Being.(being.skills.Skills.melee))::accuracy_from_equip,
-		damage
+		(Some skill_label, get_skill being)::accuracy_from_equip,
+		damage,
+		get_weapon_stats weapon
 	)
 
 let no_weapon =
@@ -178,9 +182,16 @@ let no_weapon =
 	)
 
 let effective_weapon being weapon_slot =
+	(* TODO: Where should we decide what kind of weapon it is? Probably in the UI code. *)
 	match Being.in_slot being weapon_slot with
 	| None -> no_weapon
-	| Some weapon -> effective_weapon_equip being (Being.get_usable_equips being) weapon_slot weapon
+	| Some weapon ->
+		let wa, wd, _ = effective_weapon_equip
+			~skill_label:"melee"
+			~get_skill:(fun b -> Being.(b.skills.Skills.melee))
+			~get_weapon_stats:Thing.melee
+			being (Being.get_usable_equips being) ~weapon_slot weapon in
+		wa, wd
 
 let calc_attack attacker weapon_accuracy =
 	Roll.({
@@ -201,7 +212,7 @@ let calc_evasion defender equips =
 		dice = [None, d1d20];
 	})
 
-let calc_damage (weapon_damage_label, weapon_damage) num_bonuses =
+let calc_damage (weapon_damage_label, weapon_damage) num_bonuses side_bonuses =
 	Roll.({
 		base = [];
 		dice =
@@ -209,7 +220,7 @@ let calc_damage (weapon_damage_label, weapon_damage) num_bonuses =
 				weapon_damage_label,
 				Mod_dice.({
 					num = weapon_damage.num @ num_bonuses;
-					sides = weapon_damage.sides;
+					sides = weapon_damage.sides @ side_bonuses;
 				})
 			]
 	})
@@ -232,21 +243,7 @@ let calc_protection equips =
 			| _ -> armour_dice;
 	})
 
-let melee_combat attacker defender rng =
-	let attacker_equips = Being.get_usable_equips attacker in
-	let defender_equips = Being.get_usable_equips defender in
-	let weapon, (weapon_accuracy, weapon_damage) =
-		let weapons =
-			List.filter_map begin fun (slot, thing) ->
-				if Thing.is_melee thing then Some (slot, thing)
-				else None
-			end attacker_equips in
-		match weapons with
-		| [] ->
-			None, no_weapon
-		| _ ->
-			let weapon_slot, weapon = Rng.Uniform.list_elt weapons rng in
-			Some weapon, (effective_weapon_equip attacker attacker_equips weapon_slot weapon) in
+let combat ~attacker ~defender ~attacker_equips ~defender_equips ~weapon ~weapon_accuracy ~weapon_damage ?(side_bonuses=[]) rng =
 	let attack_roll = calc_attack attacker weapon_accuracy in
 	let evasion_roll = calc_evasion defender defender_equips in
 	let attack_value = Roll.roll attack_roll rng in
@@ -268,7 +265,7 @@ let melee_combat attacker defender rng =
 				if crits > 1 then [Some "criticals", crits]
 				else if crits == 1 then [Some "critical", crits]
 				else [] in
-		let damage_roll = calc_damage weapon_damage dice_num_bonuses in
+		let damage_roll = calc_damage weapon_damage dice_num_bonuses side_bonuses in
 		let protection_roll = calc_protection defender_equips in
 		let damage_value = Roll.roll damage_roll rng in
 		let protection_value = Roll.roll protection_roll rng in
@@ -282,3 +279,48 @@ let melee_combat attacker defender rng =
 			}) in
 		Some (max 0 (damage_value - protection_value)), result
 	end
+
+let melee_combat attacker defender rng =
+	let attacker_equips = Being.get_usable_equips attacker in
+	let defender_equips = Being.get_usable_equips defender in
+	let effective_weapon_equip = effective_weapon_equip
+			~skill_label:"melee"
+			~get_skill:(fun b -> Being.(b.skills.Skills.melee))
+			~get_weapon_stats:Thing.melee in
+	let weapon, (weapon_accuracy, weapon_damage) =
+		let weapons =
+			List.filter_map begin fun (slot, thing) ->
+				if Thing.is_melee thing then Some (slot, thing)
+				else None
+			end attacker_equips in
+		match weapons with
+		| [] ->
+			None, no_weapon
+		| _ ->
+			let weapon_slot, weapon = Rng.Uniform.list_elt weapons rng in
+			let weapon_accuracy, weapon_damage, _ = effective_weapon_equip attacker attacker_equips ~weapon_slot weapon in
+			Some weapon, (weapon_accuracy, weapon_damage) in
+	combat ~attacker ~defender ~attacker_equips ~defender_equips ~weapon ~weapon_accuracy ~weapon_damage rng
+
+let throw_combat attacker defender weapon range rng =
+	let attacker_equips = Being.get_usable_equips attacker in
+	let defender_equips = Being.get_usable_equips defender in
+	let effective_weapon_equip = effective_weapon_equip
+			~weight_div:0.5
+			~skill_label:"melee"
+			~get_skill:(fun b -> Being.(b.skills.Skills.melee))
+			~get_weapon_stats:Thing.melee in
+	let weapon_accuracy, weapon_damage, base_weapon_stats = effective_weapon_equip attacker attacker_equips weapon in
+	let base_adjust, side_bonuses =
+		if Thing.is_throwing weapon then [], []
+		else
+			let side_penality =
+				match base_weapon_stats with
+				| None -> []
+				| Some ws -> [Some "not for throwing", -1 * Weapon.(ws.damage.Dice.sides / 2)] in
+			[Some "not for throwing", -5], side_penality in
+	let range_adjust =
+		if Thing.is_throwing weapon then []
+		else [Some "range", round_to_int (-.1. *. range /. 5.)] in
+	let weapon_accuracy = weapon_accuracy @ (base_adjust @ range_adjust) in
+	combat ~attacker ~defender ~attacker_equips ~defender_equips ~weapon:(Some weapon) ~weapon_accuracy ~weapon_damage ~side_bonuses rng

@@ -6,8 +6,8 @@ type stairs_dir = Up | Down
 module Message =
 	struct
 		type t =
-			| Melee_hit of (Being.t * Being.t * int * Combat.Result.t)
-			| Melee_miss of (Being.t * Being.t * Combat.Result.t)
+			| Hit of (Being.t * Being.t * int * Combat.Result.t)
+			| Miss of (Being.t * Being.t * Combat.Result.t)
 			| Pick_up of (Being.t * Thing.t)
 			| Drop of (Being.t * Thing.t)
 			| Equip of (Being.t * Equip_slot.t * Thing.t)
@@ -22,6 +22,7 @@ module Action =
 			| Wait
 			| Move of Direction.t
 			| Melee_attack of Direction.t
+			| Thrown_attack of (Thing.t * Map.Location.t * Being.t)
 			| Pick_up of Thing.t
 			| Drop of Thing.t
 			| Equip of (Thing.t * Equip_slot.t)

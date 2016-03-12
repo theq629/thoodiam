@@ -56,6 +56,7 @@ module Thing_kinds =
 				~name:"dagger"
 				~weight:0.5
 				~melee:Weapon.(make ~damage:(Dice.make 1 5) ())
+				~throwing:Weapon.(make ~damage:(Dice.make 1 5) ())
 				()
 
 		let short_sword =
@@ -101,6 +102,7 @@ module Thing_kinds =
 				~weight:3.
 				~in_combat:In_combat.(make ~accuracy:(-1) ())
 				~melee:Weapon.(make ~damage:(Dice.make 1 9) ~handedness:Hand_and_a_half ())
+				~throwing:Weapon.(make ~damage:(Dice.make 1 9) ())
 				()
 
 		let great_spear =
@@ -119,6 +121,15 @@ module Thing_kinds =
 				~weight:7.
 				~in_combat:In_combat.(make ~accuracy:(-2) ~evasion:1 ())
 				~melee:Weapon.(make ~damage:(Dice.make 2 9) ~handedness:Two_handed ())
+				()
+
+		let throwing_axe =
+			make
+				~tile:'/'
+				~name:"throwing axe"
+				~weight:4.5
+				~melee:Weapon.(make ~damage:(Dice.make 2 4) ())
+				~throwing:Weapon.(make ~damage:(Dice.make 2 4) ())
 				()
 
 		let battle_axe =

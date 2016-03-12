@@ -12,12 +12,14 @@ module Player_info =
 			{
 				seen : tile option Map.t;
 				fov : bool Map.t;
+				mutable fov_beings : Being.t list;
 			}
 
 		let make region =
 			Region.({
 				seen = Map.map region.map (fun _ v -> None);
 				fov = Map.map region.map (fun _ _ -> false);
+				fov_beings = [];
 			})
 	end
 
@@ -45,7 +47,11 @@ let update_vision region player_info player =
 	Opt.iter begin fun bodyable ->
 		set_visible player.Being.at;
 		Fov.compute blocks_sight set_visible player.Being.at bodyable.Bodyable.vision
-	end Thing.(bodyable Being.(body player))
+	end Thing.(bodyable Being.(body player));
+	player_info.fov_beings <-
+		List.filter begin fun being ->
+			being != player && Map.get player_info.fov being.Being.at
+		end region.Region.beings
 
 type t =
 	{

@@ -154,6 +154,7 @@ module Thing_kind =
 				weight : float;
 				in_combat : In_combat.t option;
 				melee : Weapon.t option;
+				throwing : Weapon.t option;
 				shield : Armour.t option;
 				body_armour : Armour.t option;
 				helm : Armour.t option;
@@ -168,6 +169,7 @@ module Thing_kind =
 			~weight
 			?in_combat
 			?melee
+			?throwing
 			?shield
 			?body_armour
 			?helm
@@ -176,7 +178,7 @@ module Thing_kind =
 			?bodyable
 			()
 			=
-			{ tile; name; weight; in_combat; melee; shield; body_armour; helm; blocks; equip_slots; bodyable }
+			{ tile; name; weight; in_combat; melee; throwing; shield; body_armour; helm; blocks; equip_slots; bodyable }
 	end
 
 module Terrain =

@@ -29,6 +29,9 @@ module Thing =
 		let melee thing =
 			thing.kind.melee
 
+		let throwing thing =
+			thing.kind.throwing
+
 		let body_armour thing =
 			thing.kind.body_armour
 
@@ -41,6 +44,9 @@ module Thing =
 		let is_melee thing =
 			thing.kind.melee <> None
 
+		let is_throwing thing =
+			thing.kind.throwing <> None
+
 		let is_body_armour thing =
 			thing.kind.body_armour <> None
 
@@ -52,6 +58,7 @@ module Thing =
 
 		let is_weapon thing =
 			thing.kind.melee <> None
+			|| thing.kind.throwing <> None
 
 		let is_armour thing =
 			thing.kind.body_armour <> None
@@ -133,6 +140,9 @@ module Being =
 			end else
 				false
 
+		let have being thing =
+			List.mem thing being.inv
+
 		let lose being thing =
 			let found, inv1 = remove_from_list being.inv thing in
 			if found then begin
@@ -206,4 +216,7 @@ module Being =
 					end (in_slot being equip_slot)
 				else None
 			end (equip_slots being)
+
+		let throw_range being thing =
+			being.can_carry /. Thing.(weight thing +. 2.)
 	end

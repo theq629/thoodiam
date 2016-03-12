@@ -22,6 +22,7 @@ let make_styles disp =
 	let black_on_white = Cp.make disp cols.C.black cols.C.white in
 	let white_on_black = Cp.make disp cols.C.white cols.C.black in
 	let yellow_on_black = Cp.make disp cols.C.yellow cols.C.black in
+	let black_on_red = Cp.make disp cols.C.white cols.C.red in
 	let ui_styles =
 		Ui.Styles.(Disp.Style.({
 			panel_label = make disp ~colours:black_on_white;
@@ -34,6 +35,8 @@ let make_styles disp =
 			popup_text_sel = make disp ~colours:yellow_on_black;
 			map_fov = make disp ~colours:yellow_on_black;
 			map_seen = make disp ~colours:white_on_black;
+			map_target = make disp ~colours:black_on_red;
+			map_targetable = make disp ~colours:black_on_white;
 		})) in
 	let extra_styles =
 		Styles.(Disp.Style.({
@@ -76,6 +79,10 @@ let game_key_bindings =
 		bind b (int_of_char 'i') Inventory;
 		bind b (int_of_char 'e') Equipment;
 		bind b (int_of_char 'd') Drop;
+		bind b (int_of_char 't') Throw;
+		bind b (int_of_char '\t') Next_target;
+		bind b 10 Accept_target;
+		bind b 27 Cancel_target;
 		bind b (int_of_char '<') Up_stairs;
 		bind b (int_of_char '>') Down_stairs;
 		bind b (int_of_char 'Q') Quit;

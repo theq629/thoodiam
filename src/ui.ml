@@ -25,6 +25,8 @@ module Make =
 						popup_key_sel : style;
 						map_fov : style;
 						map_seen : style;
+						map_target : style;
+						map_targetable : style;
 					}
 			end
 
@@ -36,6 +38,10 @@ module Make =
 					| Inventory
 					| Equipment
 					| Drop
+					| Throw
+					| Next_target
+					| Accept_target
+					| Cancel_target
 					| Page_up
 					| Page_down
 					| Finish
@@ -63,6 +69,10 @@ module Make =
 					| Inventory -> "inventory"
 					| Equipment -> "equipment"
 					| Drop -> "drop"
+					| Throw -> "throw"
+					| Next_target -> "next target"
+					| Accept_target -> "accept target"
+					| Cancel_target -> "cancel targeting"
 					| Page_up -> "page up"
 					| Page_down -> "page down"
 					| Finish -> "finish"
@@ -76,6 +86,8 @@ module Make =
 					| Quit -> "quit"
 					| Help -> "help"
 			end
+
+		type target_reason = Want_throw of Thing.t
 
 		let letter_list_ids =
 			let s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" in
@@ -114,6 +126,7 @@ module Make =
 			| Dead
 			| Left
 			| Won
+			| Nothing_in_range
 			| See_here of Thing.t list
 
 		type 'a t =
@@ -121,6 +134,10 @@ module Make =
 				panel : D.Text_view.t;
 				status : D.Text_view.t;
 				map : D.Chars_view.t;
+				mutable target_reason : target_reason option;
+				mutable target : Map.Location.t option;
+				mutable last_target : Map.Location.t option;
+				mutable targetable_points : Map.Location.t list; 
 				do_popup : ?show_help:bool -> 'a t -> (D.Text_view.t -> Key.t option -> bool) -> unit;
 				styles : Styles.t;
 				list_ids : string array;
@@ -201,6 +218,14 @@ module Make =
 		let string_of_thing_inv thing =
 			Thing.(
 				Printf.sprintf "%s %0.2f" (string_of_thing thing) Thing.(weight thing)
+			)
+
+		let string_of_thing_throwable being thing =
+			Thing.(
+				Printf.sprintf "%s%s [range:%0.2f]"
+					(string_of_thing_inv thing)
+					(if is_throwing thing then " [throwable]" else "")
+					(Being.throw_range being thing)
 			)
 
 		let string_of_slot being equip_slot =
@@ -385,8 +410,8 @@ module Make =
 			let being b = Thing.(name Being.(body b)) in
 			Game_changes.(Message.(function
 			| Pick_up (b, t) -> p "The %s picks up the %s." (being b) (thing t)
-			| Melee_hit (a, d, hp, r) -> p "The %s hits the %s for %i damage: %s." (being a) (being d) hp (Combat.Result.to_desc r)
-			| Melee_miss (a, d, r) -> p "The %s misses the %s: %s." (being a) (being d) (Combat.Result.to_desc r)
+			| Hit (a, d, hp, r) -> p "The %s hits the %s for %i damage: %s." (being a) (being d) hp (Combat.Result.to_desc r)
+			| Miss (a, d, r) -> p "The %s misses the %s: %s." (being a) (being d) (Combat.Result.to_desc r)
 			| Drop (b, t) -> p "The %s drops up the %s." (being b) (thing t)
 			| Equip (b, _, t) -> p "The %s equips up the %s." (being b) (thing t)
 			| Unequip (b, _, t) -> p "The %s unequips up the %s." (being b) (thing t)
@@ -401,6 +426,7 @@ module Make =
 			| Dead -> "You are dead!"
 			| Left -> "You lost by leaving the dungeon!"
 			| Won -> "You have won!"
+			| Nothing_in_range -> "Nothing is in range."
 			| See_here t -> p "There is %s here." (English.strings_list (List.map string_of_thing t))
 
 		let draw_panel styles game view =
@@ -494,7 +520,7 @@ module Make =
 				done
 			end
 
-		let draw_map styles view game centre =
+		let draw_map ui view game centre =
 			let module V = D.Chars_view in
 			let dimx, dimy as dim = V.dim view in
 			let offset = Vec.(centre - dim / 2) in
@@ -510,10 +536,14 @@ module Make =
 							| None -> ' '
 						end else ' ' in
 					let style =
-						if Game.(Map.is_valid game.player_info.Player_info.seen wp)
+						if match ui.target with Some t -> wp = t | None -> false then
+							ui.styles.Styles.map_target
+						else if List.mem wp ui.targetable_points then
+							ui.styles.Styles.map_targetable
+						else if Game.(Map.is_valid game.player_info.Player_info.seen wp)
 							&& Game.(Map.get game.player_info.Player_info.fov wp)
-							then styles.Styles.map_fov
-						else styles.Styles.map_seen in
+							then ui.styles.Styles.map_fov
+						else ui.styles.Styles.map_seen in
 					V.draw view ~style:style sp char
 				done
 			done
@@ -523,6 +553,10 @@ module Make =
 				panel = panel;
 				status = status;
 				map = map;
+				target_reason = None;
+				target = None;
+				last_target = None;
+				targetable_points = [];
 				do_popup = do_popup;
 				styles = styles;
 				list_ids = list_ids;
@@ -534,7 +568,7 @@ module Make =
 			draw_panel ui.styles game ui.panel;
 			draw_status ui.styles game.Game.region.Region.messages ui.messages ui.status;
 			begin match game.Game.player with
-			| Some p -> draw_map ui.styles ui.map game p.Being.at
+			| Some p -> draw_map ui ui.map game p.Being.at
 			| None -> ()
 			end;
 			D.Text_view.refresh ui.panel;
@@ -559,20 +593,59 @@ module Make =
 				if not (List.is_empty things_here) then
 					ui.messages <- (See_here things_here) :: ui.messages
 
+		let closest_point p points =
+			fst @@ List.fold_left begin fun (_, best_dist as best) point ->
+				let dist = Vec.(dist (float_of_int point) (float_of_int p)) in
+				if dist < best_dist then (Some point, dist)
+				else best
+			end (None, infinity) points
+
 		let handle_player_input game player key_bindings ui key do_cmd =
-			let move_or_attack dir =
-				let p1 = Vec.(player.Being.at + Direction.to_vec dir) in
-				if List.exists (fun b -> b.Being.at = p1) Game.(game.region.Region.beings) then do_cmd Action.(Melee_attack dir)
-				else do_cmd Action.(Move dir) in
+			let start_target max_range reason =
+				let targetable_points =
+					begin
+						let ps = List.filter_map begin fun b ->
+								let p = b.Being.at in
+								if Vec.(dist (float_of_int player.Being.at) (float_of_int p)) < max_range then Some p
+								else None
+							end Game.(game.player_info.Player_info.fov_beings) in
+						List.sort begin fun (x1, y1) (x2, y2) ->
+							let a = x1 - x2 in
+							if a != 0 then a
+							else
+								y1 - y2
+						end ps
+					end in
+				match targetable_points with
+				| [] ->
+					ui.messages <- Nothing_in_range::ui.messages
+				| _ ->
+					ui.targetable_points <- targetable_points;
+					ui.target_reason <- Some reason;
+					let start_point =
+						match ui.last_target with
+						| Some p when Map.get Game.(game.player_info.Player_info.fov) p -> p
+						| _ -> player.Being.at in
+					ui.target <- closest_point start_point ui.targetable_points in
+			let movement dir =
+				match ui.target with
+				| None ->
+					let p1 = Vec.(player.Being.at + Direction.to_vec dir) in
+					if List.exists (fun b -> b.Being.at = p1) Game.(game.region.Region.beings) then do_cmd Action.(Melee_attack dir)
+					else do_cmd Action.(Move dir)
+				| Some p ->
+					let p1 = Vec.(p + Direction.to_vec dir) in
+					let p2 = closest_point p1 (List.filter (fun p3 -> p3 != p) ui.targetable_points) in
+					ui.target <- p2 in
 			Key.(match key with
-			| N -> move_or_attack Direction.N
-			| S -> move_or_attack Direction.S
-			| E -> move_or_attack Direction.E
-			| W -> move_or_attack Direction.W
-			| NE -> move_or_attack Direction.NE
-			| NW -> move_or_attack Direction.NW
-			| SE -> move_or_attack Direction.SE
-			| SW -> move_or_attack Direction.SW
+			| N -> movement Direction.N
+			| S -> movement Direction.S
+			| E -> movement Direction.E
+			| W -> movement Direction.W
+			| NE -> movement Direction.NE
+			| NW -> movement Direction.NW
+			| SE -> movement Direction.SE
+			| SW -> movement Direction.SW
 			| Wait ->
 				do_cmd Action.Wait
 			| Help ->
@@ -629,6 +702,45 @@ module Make =
 					if List.mem player.Being.at game.Game.region.Region.down_stairs then
 						do_cmd Action.(Take_stairs Down)
 				end
+			| Throw ->
+				show_list "Thing to throw" (string_of_thing_throwable player) Being.(inv player) ~multiple:true ui begin fun thing ->
+					start_target (Being.throw_range player thing) (Want_throw thing)
+				end
+			| Next_target ->
+				Opt.iter begin fun target ->
+					let i =
+						match list_index target ui.targetable_points with
+						| Some i -> i
+						| None -> 0 in
+					let j = (i + 1) mod List.length ui.targetable_points in
+					try
+						ui.target <- Some (List.nth ui.targetable_points j)
+					with Failure _ -> ()
+				end ui.target
+			| Accept_target ->
+				Opt.iter begin fun target ->
+					Opt.iter begin fun being ->
+						begin match ui.target_reason with
+						| Some (Want_throw thing) ->
+							begin match List.find_pred (fun b -> b.Being.at = target) game.Game.region.Region.beings with
+							| None -> ()
+							| Some target_being -> do_cmd Action.(Thrown_attack (thing, target, target_being))
+							end
+						| None -> ()
+						end;
+						ui.last_target <- ui.target;
+						ui.target_reason <- None;
+						ui.target <- None;
+					ui.targetable_points <- []
+					end (List.find_pred (fun b -> b.Being.at = target) Game.(game.player_info.Player_info.fov_beings))
+				end ui.target
+			| Cancel_target ->
+				Opt.iter begin fun target ->
+					ui.last_target <- ui.target;
+					ui.target_reason <- None;
+					ui.target <- None;
+					ui.targetable_points <- []
+				end ui.target
 			| _ -> ()
 			)
 

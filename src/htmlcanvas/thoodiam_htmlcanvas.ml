@@ -32,6 +32,8 @@ let make_styles disp =
 			popup_text_sel = make disp ~fg:(c "yellow");
 			map_fov = make disp ~fg:(c "yellow");
 			map_seen = make disp ~fg:(c "white");
+			map_target = make disp ~fg:(c "black") ~bg:(c "red");
+			map_targetable = make disp ~fg:(c "black") ~bg:(c "white");
 		})) in
 	let extra_styles =
 		Styles.(Disp.Style.({
@@ -86,6 +88,10 @@ let game_key_bindings =
 		bind b (false, 73) Inventory;
 		bind b (false, 69) Equipment;
 		bind b (false, 68) Drop;
+		bind b (false, 84) Throw;
+		bind b (true, 56) Next_target;
+		bind b (false, 13) Accept_target;
+		bind b (false, 27) Cancel_target;
 		bind b (true, 188) Up_stairs;
 		bind b (true, 190) Down_stairs;
 		bind b (true, 81) Quit;

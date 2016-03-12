@@ -139,14 +139,13 @@ let kill_being region being =
 		end being.equip;
 	)
 
-let handle_combat region attacker defender rng =
-	let hit, result = Combat.melee_combat attacker defender rng in
+let handle_combat_result region attacker defender hit result =
 	match hit with
 	| None ->
-		add_msg region attacker.Being.at (Message.Melee_miss (attacker, defender, result))
+		add_msg region attacker.Being.at (Message.Miss (attacker, defender, result))
 	| Some hp ->
 		Being.(
-			add_msg region attacker.Being.at (Message.Melee_hit (attacker, defender, hp, result));
+			add_msg region attacker.Being.at (Message.Hit (attacker, defender, hp, result));
 			defender.hp <- defender.hp - hp;
 			if defender.hp <= 0 then
 				kill_being region defender;
@@ -180,7 +179,19 @@ let handle_action region being action rng =
 			begin match List.find_pred (fun b -> b.Being.at = p1) region.beings with
 			| None -> ()
 			| Some being1 ->
-				handle_combat region being being1 rng
+				let hit, result = Combat.melee_combat being being1 rng in
+				handle_combat_result region being being1 hit result
+			end;
+			false
+		end;
+	| Thrown_attack (thing, target, target_being) -> begin
+			(* TODO: it would probably be better if we didn't get the being from the UI, but it's location may change before we process the event *)
+			let range = Vec.(dist (float_of_int being.Being.at) (float_of_int target)) in
+			if range < Being.throw_range being thing && Being.have being thing then begin
+				ignore (Being.lose being thing);
+				add_thing region target thing;
+				let hit, result = Combat.throw_combat being target_being thing range rng in
+				handle_combat_result region being target_being hit result
 			end;
 			false
 		end;
