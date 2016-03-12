@@ -3,18 +3,23 @@ open Game_data
 open Game_state
 open Game_changes
 
+type floodfiller = ?neighbour_weight:(float Game_data.Map.t -> Tilemap.Location.t -> Game_data.Map.Location.t -> float -> float) -> visit:(float Game_data.Map.t -> Tilemap.Location.t -> float -> unit) -> starts:Game_data.Map.Location.t list -> unit
+
 type t =
 	{
 		region : Region.t;
 		mutable player_at : Map.Location.t;
 		move_map : float Map.t;
+		floodfiller : floodfiller;
 	}
 
 let make region =
+	let move_map = Map.map region.Region.map (fun _ _ -> max_float) in
 	{
 		region = region;
 		player_at = (-1, -1);
-		move_map = Map.map region.Region.map (fun _ _ -> max_float);
+		move_map = move_map;
+		floodfiller = Map_search.floodfill ~map:move_map;
 	}
 
 let update_move_map ai =
@@ -24,15 +29,12 @@ let update_move_map ai =
 			let cell = Map.get ai.region.map p in
 			not cell.Cell.terrain.Terrain.blocking
 		) in
-	Map_search.floodfill
-		~neighbours:begin fun p dp f ->
-			if dp <= find_player_radius then
-				Map.neighbours ai.region.Region.map p begin fun p1 ->
-					if is_clear p1 then
-						f p1 Vec.(dist (float_of_int p) (float_of_int p1))
-				end
+	ai.floodfiller
+		~neighbour_weight:begin fun _ p p1 dp ->
+			if dp <= find_player_radius && is_clear p1 then Vec.(dist (float_of_int p) (float_of_int p1))
+			else infinity
 		end
-		~visit:begin fun p dp ->
+		~visit:begin fun _ p dp ->
 			Map.set ai.move_map p dp
 		end
 		~starts:[ai.player_at]

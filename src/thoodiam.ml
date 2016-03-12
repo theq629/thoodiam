@@ -25,26 +25,26 @@ let for_clear_points ?max_tries map is_clear num rng f =
 				run (t + 1) n in
 	run 0 num
 
-let check_pathing ?(min_dist=0.) map is_clear finishes =
+let check_pathing map =
 	let module Point_set = Set.Make(struct type t = int * int;; let compare = compare;; end) in
-	let finishes = Point_set.of_list finishes in
-	fun start ->
-		let path = Map_search.dijkstra
-			~neighbours:begin fun p dp f ->
-				Map.neighbours map p begin fun p1 ->
-					if is_clear map p1 then
-						f p1 Vec.(dist (float_of_int p) (float_of_int p1))
+	let dijkstra = Map_search.dijkstra ~map:map in
+	fun min_dist is_clear finishes ->
+		let finishes = Point_set.of_list finishes in
+		fun start ->
+			let path = dijkstra
+				~neighbour_weight:begin fun _ p p1 dp ->
+					if is_clear map p1 then Vec.(dist (float_of_int p) (float_of_int p1))
+					else infinity
 				end
-			end
-			~visit:begin fun p dp ->
-				dp >= min_dist && Point_set.mem p finishes
-			end
-			~starts:[start] in
-		match path with
-		| None -> false
-		| Some _ -> true
+				~visit:begin fun _ p dp ->
+					dp >= min_dist && Point_set.mem p finishes
+				end
+				~starts:[start] in
+			match path with
+			| None -> false
+			| Some _ -> true
 
-let choose_stair_points ~max_tries map is_clear num_ups num_downs min_stair_dist rng =
+let choose_stair_points ~max_tries map check_pathing is_clear num_ups num_downs min_stair_dist rng =
 	let make_points is_clear num =
 		let points = ref [] in
 		for_clear_points ~max_tries:10 map is_clear num rng begin fun p ->
@@ -53,7 +53,7 @@ let choose_stair_points ~max_tries map is_clear num_ups num_downs min_stair_dist
 		!points in
 	Retry.retry ~max_tries begin fun () ->
 		let downs = make_points is_clear num_downs in
-		let has_path_to_down = check_pathing ~min_dist:min_stair_dist map is_clear downs in
+		let has_path_to_down = check_pathing min_stair_dist is_clear downs in
 		let ups = make_points (fun map p -> is_clear map p && has_path_to_down p) num_ups in
 		match ups, downs with
 		| _::_, _::_ -> Retry.Ok (ups, downs)
@@ -75,7 +75,7 @@ let make_stuff region up_stairs num is_clear normal_kinds unique_kinds rng =
 		let thing = Thing.make kind in
 		Region.add_thing region p thing
 	end;
-	let has_path_to_up = check_pathing region.Region.map is_clear up_stairs in
+	let has_path_to_up = check_pathing region.Region.map 0. is_clear up_stairs in
 	let i = ref 0 in
 	for_clear_points region.Region.map (fun map p -> is_clear map p && has_path_to_up p) (Array.length unique_kinds) rng begin fun p ->
 		let kind = unique_kinds.(!i) in
@@ -163,6 +163,7 @@ let make_map ~max_tries dim num_stairs min_stair_dist has_downs rng =
 					| Mapgen.Wall -> Terrains.wall in
 				Region.Cell.make terrain
 			end in
+		let check_pathing = check_pathing map in
 		Retry.map begin fun (ups, downs) ->
 			List.iter begin fun p ->
 				(Map.get map p).Region.Cell.terrain <- Terrains.stairs_up
@@ -175,7 +176,7 @@ let make_map ~max_tries dim num_stairs min_stair_dist has_downs rng =
 					downs
 				end else [] in
 			(map, ups, use_downs)
-		end (choose_stair_points ~max_tries:10 map is_clear num_stairs num_stairs min_stair_dist rng)
+		end (choose_stair_points ~max_tries:10 map check_pathing is_clear num_stairs num_stairs min_stair_dist rng)
 	end
 
 let make_region spec map_rng things_rng =
