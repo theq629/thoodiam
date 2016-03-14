@@ -8,7 +8,7 @@ Combat mechanics and most item properties are stolen from Sil.
 Building
 --------
 
-Requirements: recentish OCaml, ocaml-curses, ocaml-containers, gamestuff (my own library).
+Requirements: recentish OCaml, ocaml-curses, ocaml-containers, gamestuff (my own library). js_of_ocaml for the web version.
 
 Run make with either target, or 'all' for both:
 	bin: curses program
